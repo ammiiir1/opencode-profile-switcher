@@ -1,0 +1,37 @@
+{
+  "model": "openrouter/deepseek/deepseek-v4.1-flash",
+  "agent": {
+    "build": {
+      "model": "openrouter/deepseek/deepseek-v4.1-flash",
+      "reasoningEffort": "medium"
+    },
+    "plan": {
+      "model": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
+    },
+    "general": {
+      "model": "openrouter/qwen/qwen3.6-flash",
+      "reasoningEffort": "low"
+    },
+    "explore": {
+      "model": "openrouter/z-ai/glm-5.3-flash",
+      "reasoningEffort": "low"
+    },
+    "orchestrator": {
+      "model": "openrouter/minimax/minimax-m3.1-flash",
+      "reasoningEffort": "medium"
+    },
+    "coder": {
+      "model": "openrouter/xiaomi/mimo-v2.6-flash",
+      "reasoningEffort": "medium"
+    },
+    "auditor": {
+      "model": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
+    },
+    "vision-analyst": {
+      "model": "openrouter/minimax/minimax-m3.1-flash",
+      "reasoningEffort": "medium"
+    }
+  }
+}

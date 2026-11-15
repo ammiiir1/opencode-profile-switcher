@@ -1,0 +1,37 @@
+{
+  "model": "openai/gpt-6-astra",
+  "agent": {
+    "build": {
+      "model": "anthropic/claude-fable-5-2",
+      "reasoningEffort": "high"
+    },
+    "plan": {
+      "model": "openai/gpt-6-astra",
+      "reasoningEffort": "high"
+    },
+    "general": {
+      "model": "openrouter/z-ai/glm-5.3",
+      "reasoningEffort": "medium"
+    },
+    "explore": {
+      "model": "openrouter/google/gemini-3.1-pro-preview",
+      "reasoningEffort": "medium"
+    },
+    "orchestrator": {
+      "model": "openai/gpt-6-astra",
+      "reasoningEffort": "high"
+    },
+    "coder": {
+      "model": "openrouter/moonshotai/kimi-k3.1-pro",
+      "reasoningEffort": "high"
+    },
+    "auditor": {
+      "model": "anthropic/claude-opus-5-5",
+      "reasoningEffort": "high"
+    },
+    "vision-analyst": {
+      "model": "openrouter/deepseek/deepseek-v4-pro",
+      "reasoningEffort": "high"
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "opencode-profile-switcher",
+  "version": "0.1.0",
+  "description": "OpenCode V2 plugin that switches per-repository model profiles across agents, with TUI, experimental GUI and RPC integrations.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ammiiir1/opencode-profile-switcher.git"
+  },
+  "homepage": "https://github.com/ammiiir1/opencode-profile-switcher#readme",
+  "bugs": {
+    "url": "https://github.com/ammiiir1/opencode-profile-switcher/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "plugin",
+    "model-profiles",
+    "model-switcher",
+    "agents",
+    "reasoning-effort",
+    "tui",
+    "gui",
+    "rpc"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./tui": "./src/tui.tsx",
+    "./rpc": "./src/rpc.ts",
+    "./gui-experimental": "./dist/gui-experimental.cjs"
+  },
+  "files": [
+    "src",
+    "dist",
+    "examples",
+    "scripts"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "prepack": "vite build",
+    "install:manual": "node scripts/install.mjs"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.3.0"
+  },
+  "devDependencies": {
+    "@opencode/plugin": "^2.3.0",
+    "@types/bun": "^1.4.3",
+    "@types/node": "^24.12.2",
+    "solid-js": "^1.9.19",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.8",
+    "vite-plugin-solid": "^2.11.16"
+  }
+}

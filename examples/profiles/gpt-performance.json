@@ -1,0 +1,37 @@
+{
+  "model": "openai/gpt-6-astra",
+  "agent": {
+    "build": {
+      "model": "openai/gpt-6.1-terra",
+      "reasoningEffort": "high"
+    },
+    "plan": {
+      "model": "openai/gpt-6-astra",
+      "reasoningEffort": "high"
+    },
+    "general": {
+      "model": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
+    },
+    "explore": {
+      "model": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
+    },
+    "orchestrator": {
+      "model": "openai/gpt-6-astra",
+      "reasoningEffort": "high"
+    },
+    "coder": {
+      "model": "openai/gpt-6.1-terra",
+      "reasoningEffort": "high"
+    },
+    "auditor": {
+      "model": "openai/gpt-6-astra",
+      "reasoningEffort": "high"
+    },
+    "vision-analyst": {
+      "model": "openai/gpt-6.1-sol",
+      "reasoningEffort": "high"
+    }
+  }
+}

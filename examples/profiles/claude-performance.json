@@ -1,0 +1,37 @@
+{
+  "model": "anthropic/claude-opus-5-5",
+  "agent": {
+    "build": {
+      "model": "anthropic/claude-opus-5-5",
+      "reasoningEffort": "high"
+    },
+    "plan": {
+      "model": "anthropic/claude-fable-5-2",
+      "reasoningEffort": "high"
+    },
+    "general": {
+      "model": "anthropic/claude-sonnet-5-5",
+      "reasoningEffort": "medium"
+    },
+    "explore": {
+      "model": "anthropic/claude-sonnet-5-5",
+      "reasoningEffort": "medium"
+    },
+    "orchestrator": {
+      "model": "anthropic/claude-fable-5-2",
+      "reasoningEffort": "high"
+    },
+    "coder": {
+      "model": "anthropic/claude-opus-5-5",
+      "reasoningEffort": "high"
+    },
+    "auditor": {
+      "model": "anthropic/claude-fable-5-2",
+      "reasoningEffort": "high"
+    },
+    "vision-analyst": {
+      "model": "anthropic/claude-opus-5-5",
+      "reasoningEffort": "medium"
+    }
+  }
+}

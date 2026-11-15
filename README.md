@@ -1,76 +1,117 @@
 # OpenCode Profile Switcher
 
-Switch between model profiles in **OpenCode V2** without manually reconfiguring every agent. A profile can specify a default model and model/reasoning settings for built-in and custom agents. Profile selection is stored per repository, with integrations for both the **Terminal UI (TUI)** and **Desktop GUI**.
-
-> **Pre-release documentation** — This README describes the intended public package and installation workflow. The source is being moved into a standalone package; **the commands below that install from npm/GitHub work only after the package or repository has been published with its required built artifacts**. The GUI API is experimental. Confirm all platforms and installation paths against a clean release before removing this notice.
+Switch between model profiles in **OpenCode V2** without reconfiguring every agent by hand. A profile names a default model and, optionally, a model and reasoning effort for each agent. The selected profile is stored per repository and applied to the server's model and agent registries, with integrations for the **Terminal UI (TUI)** and the experimental **Desktop GUI**.
 
 ## Features
 
-- Select model profiles using `/profile` in the TUI or Desktop GUI.
-- Configure a default model and separate model/reasoning settings per agent.
-- Support both built-in agents and existing custom agents.
-- Persist the selected profile **per repository** in `.opencode/model-profile.json`.
-- Apply profile changes to the server's agent configuration; update the active Desktop Composer model when supported.
-- Use JSON profiles you can copy, edit, and share.
-- Ship server, TUI, and Desktop GUI integrations in one OpenCode V2 plugin package.
+- Select a profile with `/profile` in the TUI or the Desktop GUI.
+- Set a default model and per-agent model and reasoning effort from one JSON file.
+- Apply settings to built-in agents and to custom agents that exist on your install.
+- Store the selection **per repository** in `.opencode/model-profile.json`.
+- Refresh the live model and agent registries in-process after a switch, without restarting OpenCode.
+- Ship server, TUI, Desktop GUI, and RPC integrations in one package.
 
-> **Known limitation:** The active Desktop Composer's manually selected reasoning effort is not guaranteed to reset to the profile's effort setting. Model selection and agent-registry settings are distinct from Composer UI state.
+## Reasoning effort is best-effort
+
+A profile's `reasoningEffort` is applied as a model variant. That synchronization is **best-effort and depends on model and provider support**:
+
+- A variant is registered only when the model is available to the plugin and accepts the requested variant.
+- The server registry and the Desktop Composer keep separate state. The plugin selects the profile's model in the active Composer, but a manually chosen reasoning effort in the Composer is not guaranteed to be replaced.
+- When an effort cannot be applied, the model is still applied. Toasts and docs say so instead of promising effort support.
 
 ## Requirements
 
-- An installed and working **OpenCode V2** version compatible with this plugin's release. The exact minimum tested version will be stated in the first release notes.
-- Provider connections and access to the model IDs referenced in your profiles.
-- The Desktop application for GUI integration; the terminal application for TUI integration.
-- **No Node.js, npm, Bun, Vite, or Homebrew is required for end users** when installing a published, prebuilt package through OpenCode's native plugin installer.
+- **OpenCode V2** with an installed plugin SDK compatible with `@opencode/plugin` 2.3.x. V1 is not supported.
+- Provider connections and access to the model IDs your profiles reference.
+- The Desktop application for GUI integration, the terminal application for TUI integration.
+- **Installing never builds anything.** The GUI bundle is committed to the repository and published in the package, so npm, GitHub, and manual installs all work without Node.js, npm, Bun, Vite, or Homebrew. (The optional `scripts/install.mjs` helper needs Node.js 20+.)
 
-OpenCode's experimental GUI extension interface can change between OpenCode versions; check release compatibility when updating OpenCode.
+The Desktop GUI extension API is experimental and can change between OpenCode versions. Check release compatibility when updating OpenCode.
 
-## Install — recommended (macOS, Windows, Linux)
-
-Open a terminal (Terminal on macOS/Linux or PowerShell/Windows). When this plugin is published to npm:
+## Install — use one method only
 
 ```sh
 opencode plugin add opencode-profile-switcher
 ```
 
-Alternatively, after the GitHub repository contains a correctly packaged, distributable plugin:
+Or install straight from GitHub:
 
 ```sh
-opencode plugin add github:YOUR_GITHUB_USERNAME/opencode-profile-switcher
+opencode plugin add github:ammiiir1/opencode-profile-switcher
 ```
 
-**Replace `YOUR_GITHUB_USERNAME` with the actual repository owner before publishing this README.** These are alternative install methods: use **one**, not both. `opencode plugin add` installs a supported package and adds it to the global OpenCode configuration. It is not the same as `npm install -g`, which does not register the plugin with OpenCode.
+`opencode plugin add` registers the plugin with OpenCode; `npm install -g` does **not**. Both commands install the same plugin.
 
-Check installation:
+> **Install once.** The plugin must be registered exactly one way. Installing from npm *and* GitHub, or installing twice, registers the same server plugin and TUI/GUI entries twice, which produces duplicated or conflicting `/profile` entries. Remove the previous installation before switching methods.
+
+### Version pinning
+
+```sh
+# npm, exact version
+opencode plugin add opencode-profile-switcher@0.1.0
+
+# GitHub, npm git-ref syntax (tag or commit)
+opencode plugin add github:ammiiir1/opencode-profile-switcher#v0.1.0
+```
+
+### Check, update, remove
 
 ```sh
 opencode plugin list
+opencode plugin check
+opencode plugin update opencode-profile-switcher
+opencode plugin remove opencode-profile-switcher
 ```
 
-Open or reload OpenCode, then type `/profile` in the TUI or Desktop GUI. The command should appear in the slash-command suggestions and open the profile picker. Desktop loads GUI extensions from its own server's global plugin configuration; if you use an external server, confirm which server the application is connected to.
+Open or reload OpenCode, then type `/profile` in the TUI or the Desktop GUI. Desktop loads GUI extensions from its own server's plugin configuration; if you use an external server, confirm which server the application is connected to.
 
-### About Homebrew and click-to-install
+## Manual installation
 
-Homebrew **is not required**. OpenCode's own `plugin add` is the primary cross-platform installation method. A Homebrew formula/cask or click-to-install package should only be advertised if an actual separately maintained release artifact exists; none is assumed by this README.
+Use this when you do not want a package registry. No build step is required: the package ships its prebuilt GUI bundle.
 
-## Manual installation — no npm or Homebrew
-
-Use this when you do not want to install the plugin from a package registry. You still need OpenCode itself.
-
-1. Download a **built release archive** from this repository's Releases page (once published). It must contain the package root (`package.json` with its `exports`), `src/`, and the prebuilt `dist/gui-experimental.cjs`. A GitHub-generated *source code* archive without `dist/` may **not** be usable as-is.
-2. Extract the package directory, keeping the internal folder structure intact.
-3. Place that directory into your OpenCode global plugin directory, as an immediate subdirectory named `opencode-profile-switcher`.
-4. Open/reload OpenCode and check the `/profile` command in both available interfaces.
+1. Get a **built package**: a release archive from this repository, or a tarball produced by `npm pack opencode-profile-switcher`. A GitHub-generated *source code* archive also works, because `dist/gui-experimental.cjs` is committed.
+2. Keep the package root intact — it must contain `package.json` (with its `exports`), `src/`, `dist/`, and `examples/`.
+3. Place that directory in your OpenCode global plugins directory, as an immediate subdirectory named `opencode-profile-switcher`.
+4. Restart or reload OpenCode and check `/profile` in the interfaces you use.
 
 Default global plugin directories:
 
 | Platform | Plugin package directory |
 | --- | --- |
 | macOS | `~/.config/opencode/plugins/opencode-profile-switcher/` |
-| Linux | `~/.config/opencode/plugins/opencode-profile-switcher/` |
+| Linux | `$XDG_CONFIG_HOME/opencode/plugins/opencode-profile-switcher/` (or `~/.config/opencode/plugins/…`) |
 | Windows (PowerShell) | `$HOME/.config/opencode/plugins/opencode-profile-switcher/` |
 
-OpenCode also supports custom config locations (including XDG paths); use the directory that **your OpenCode installation** actually reads. You can instead keep the built package in any directory and add that directory path under `plugins` in your global `opencode.jsonc`, for example:
+OpenCode also supports custom config locations; use the directory **your** OpenCode installation reads.
+
+### Optional installer script
+
+The repository includes a small cross-platform installer that copies the built package into that directory for you. It requires Node.js 20 or newer, never edits OpenCode configuration, and does not build anything.
+
+```sh
+# from a checkout or an extracted release archive
+node scripts/install.mjs --dry-run
+node scripts/install.mjs
+
+# explicit locations
+node scripts/install.mjs --from /path/to/opencode-profile-switcher --target ~/.config/opencode/plugins
+
+# replace an existing copy, or remove it again
+node scripts/install.mjs --force
+node scripts/install.mjs --remove
+```
+
+| Flag | Purpose |
+| --- | --- |
+| `--from <dir>` | Package directory to install (default: this repository) |
+| `--target <dir>` | Plugins directory to install into (default: `$XDG_CONFIG_HOME/opencode/plugins` or `~/.config/opencode/plugins`) |
+| `--force` | Replace a copy that is already installed |
+| `--remove` | Remove a copy previously installed by this script |
+| `--dry-run` | Print the actions without touching the filesystem |
+
+Before copying, the script validates the package name, `dist/gui-experimental.cjs`, and the six bundled example profiles. It refuses to overwrite or remove a directory whose `package.json` belongs to another package, and it warns when `opencode.json`/`opencode.jsonc` already references the plugin so you do not register it twice.
+
+The alternative to the plugins directory is an explicit path, which you must also remove when uninstalling:
 
 ```jsonc
 {
@@ -79,21 +120,15 @@ OpenCode also supports custom config locations (including XDG paths); use the di
 }
 ```
 
-For a Windows absolute path in JSON, use forward slashes, such as `C:/Users/you/Downloads/opencode-profile-switcher`, or escape backslashes. Preserve other existing global configuration settings when adding a plugin. Do not register both the auto-discovered folder and an explicit duplicate path.
+Use forward slashes on Windows (`C:/Users/you/opencode-profile-switcher`) or escape backslashes. Keep other global configuration intact, and do not register both an auto-discovered directory and an explicit path.
 
-> **Manual-install caveat:** A release archive must include everything necessary to load the package. The exact manual install layout will be checked with a clean OpenCode V2 setup before the first release.
+### Why not Homebrew?
 
-## Set up your first profile
+Homebrew was considered and deliberately not provided: it installs files, while OpenCode's own `opencode plugin add` already installs, updates, and removes a V2 plugin on macOS, Linux, and Windows. A formula or cask would duplicate that distribution path and add a second thing to keep in sync without giving users anything extra.
 
-Profile files are JSON. The existing plugin implementation discovers global profiles from:
+## Profiles
 
-```text
-~/.config/opencode/profiles/*.json
-```
-
-On Windows, the equivalent is normally under the user's home directory (for example `$HOME/.config/opencode/profiles/`). If the final packaged version changes profile discovery or supports a configurable profile directory, update this section to reflect the implemented behavior.
-
-Copy one or more files from [`examples/profiles/`](examples/profiles/) into the profile directory. Or create a new file, such as `my-profile.json`:
+A profile is a JSON file:
 
 ```json
 {
@@ -110,31 +145,54 @@ Copy one or more files from [`examples/profiles/`](examples/profiles/) into the 
     "orchestrator": {
       "model": "openai/gpt-6.1-sol",
       "reasoningEffort": "high"
-    },
-    "coder": {
-      "model": "openai/gpt-6.1-terra",
-      "reasoningEffort": "medium"
     }
   }
 }
 ```
 
-Here `build` and `plan` are built-in primary agents, while `orchestrator` and `coder` are **illustrative custom agent names**. The example assumes that `orchestrator` is configured as a primary agent and `coder` as a subagent **in their agent definitions**. A profile does not create agents or determine their types.
+- `model` is the profile's fallback model, used when no agent-specific assignment matches.
+- Each `agent` entry sets that agent's model and, optionally, its reasoning effort.
+- Model references are `provider/model`; the model part may contain slashes, for example `openrouter/deepseek/deepseek-v4.1-flash`.
+- `build` and `plan` are built-in primary agents; `general` and `explore` are built-in subagents. `orchestrator`, `coder`, `auditor`, and `vision-analyst` in the bundled examples are **illustrative custom agent names** — a profile does not create agents.
+- Files must be `.json`; no `//` comments.
 
-The built-in agent names used in the included examples are:
+### Where profiles are discovered
 
-| Agent | Type |
+In order:
+
+1. `options.profilesDir`, when you set it. A relative path resolves against the workspace directory.
+2. The global user directory `$XDG_CONFIG_HOME/opencode/profiles` (or `~/.config/opencode/profiles`) — used when it contains at least one `.json` file.
+3. The bundled `examples/profiles/` shipped with the package.
+
+A configured `profilesDir` that is missing or contains no `.json` profiles is a setup error, named in the plugin log, rather than a silent fallback. The bundled directory is required as the last fallback; if it is missing, setup fails with a clear message.
+
+Profile names come from file names, sorted alphabetically; labels are derived from the name (`gpt-economic` → `GPT Economic`).
+
+### Options
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    {
+      "package": "opencode-profile-switcher",
+      "options": {
+        "profilesDir": "./profiles",
+        "defaultProfile": "gpt-economic"
+      }
+    }
+  ]
+}
+```
+
+| Option | Purpose |
 | --- | --- |
-| `build`, `plan` | Built-in primary agents |
-| `general`, `explore` | Built-in subagents |
-| `orchestrator` | Example custom primary agent |
-| `coder`, `auditor`, `vision-analyst` | Example custom subagents |
+| `profilesDir` | Directory to read profiles from. Relative paths resolve against the workspace directory. |
+| `defaultProfile` | Profile used when the repository has no stored selection yet. |
 
-Names and model IDs in the examples are illustrative. You must connect the required providers, and every model/effort setting must be supported by your OpenCode version and provider. The labels **economic** and **performance** express different priorities, not a guarantee about actual cost or benchmark results.
+Initial selection is resolved as: stored per-repository selection (when it still exists) → `defaultProfile` → first discovered profile. No profile name is hardcoded, so a clean install works without the examples matching your personal setup.
 
-> **JSON only:** Profile files are `.json`; do not insert `//` comments. Put explanatory comments in documentation, not in the profile file.
-
-## Included profile examples
+### Bundled example profiles
 
 | File | Purpose |
 | --- | --- |
@@ -145,21 +203,25 @@ Names and model IDs in the examples are illustrative. You must connect the requi
 | [`mixed-economic.json`](examples/profiles/mixed-economic.json) | Cross-provider, cost-conscious mix |
 | [`mixed-performance.json`](examples/profiles/mixed-performance.json) | Cross-provider, higher-capability mix |
 
-The example files are optional. Custom agents referenced in them must already exist in the user's OpenCode configuration.
+Names and model IDs are illustrative. Connect the required providers, and check that each model/effort setting exists for your OpenCode version and provider. **economic** and **performance** express priorities, not a guarantee about cost or benchmark results.
+
+### Custom agents
+
+Agent assignments are applied only to agents that exist on your install. Agents a profile names but your OpenCode does not define are skipped instead of rejecting the profile, and the skipped names are reported in a toast. That is why the bundled examples work on a clean install while custom agent names remain optional.
 
 ## Use `/profile`
 
-1. Open your repository in the OpenCode TUI or Desktop GUI.
-2. Type `/profile` and select a profile from the list.
-3. The selected profile is saved in that repository's `.opencode/model-profile.json`.
-4. The plugin updates the relevant server configuration and, where supported, the current Desktop Composer model without a full OpenCode application restart.
-5. Switch again at any time; selecting a profile is a runtime action and does **not** require rebuilding the plugin.
+1. Open a repository in the OpenCode TUI or Desktop GUI.
+2. Type `/profile` and pick a profile.
+3. The selection is saved to that repository's `.opencode/model-profile.json`.
+4. The plugin disposes and re-registers its model and agent transforms, so the live registries follow the new profile without restarting OpenCode.
+5. In the Desktop GUI, the active Composer also selects the profile's model when a session is open.
 
-**Desktop:** `/profile` must be registered as a GUI command with an explicit slash entry, not merely as a command-palette entry. **TUI:** it must be registered in the TUI keymap's slash-command list. These are separate plugin interfaces; one does not automatically register the other.
+Switch again at any time; selecting a profile is a runtime action.
+
+TUI and Desktop GUI are separate plugin interfaces. `/profile` is registered in the TUI keymap's slash-command list and as a Desktop GUI command with an explicit slash entry; one does not register the other.
 
 ## Update or uninstall
-
-For a package installed with `opencode plugin add`:
 
 ```sh
 opencode plugin check
@@ -167,65 +229,65 @@ opencode plugin update opencode-profile-switcher
 opencode plugin remove opencode-profile-switcher
 ```
 
-For manual installations, replace or remove the manually installed plugin directory, then reload OpenCode. When using an explicit `plugins` path, remove that entry as well.
+For manual installations, replace or remove the installed directory (or use `node scripts/install.mjs --remove`), then reload OpenCode. If you added an explicit `plugins` path, remove that entry too.
 
-Uninstalling the plugin should **not** silently delete your profile JSON files or per-repository `.opencode/model-profile.json` selections. Remove those separately only if you choose to.
+Updating or uninstalling never deletes your profile JSON files or the per-repository `.opencode/model-profile.json` selections. Remove those yourself if you want them gone.
 
 ## Build from source (contributors)
 
-The public release ships a compiled GUI bundle; the steps here are for maintainers or contributors, **not** normal installation.
-
-Prerequisites: Git, Bun, and an OpenCode V2 SDK-compatible toolchain.
-
 ```sh
-git clone https://github.com/YOUR_GITHUB_USERNAME/opencode-profile-switcher.git
+git clone https://github.com/ammiiir1/opencode-profile-switcher.git
 cd opencode-profile-switcher
 bun install
-bunx vite build
+bun run typecheck
+bun test
+bun run build
 ```
 
-The build configuration should use the official experimental GUI Vite preset and produce `dist/gui-experimental.cjs` from `src/gui.ts` (or its final chosen source entry). `package.json` must export that bundle as `./gui-experimental` alongside the server and TUI entries. For example, the relevant exports are:
+`bun run build` writes `dist/gui-experimental.cjs` from `src/gui.ts` through the official experimental GUI Vite preset (`@opencode/plugin/gui/vite`). The bundle is committed and shipped so that npm and GitHub installs never need build tooling; `prepack` rebuilds it when you publish, and `bun run watch` rebuilds on change.
 
-```json
-{
-  "exports": {
-    ".": "./src/index.ts",
-    "./tui": "./src/tui.tsx",
-    "./gui-experimental": "./dist/gui-experimental.cjs",
-    "./rpc": "./src/rpc.ts"
-  }
-}
+Package layout:
+
+```text
+package.json        exports: ".", "./tui", "./rpc", "./gui-experimental"
+src/index.ts        server plugin: transforms, session pinning, per-repo state, RPC handlers
+src/tui.tsx         TUI plugin: /profile slash command
+src/gui.ts          experimental Desktop GUI plugin, bundled to CommonJS
+src/rpc.ts          shared RPC contract
+src/profile-shared.ts  discovery, validation, persistence
+dist/               prebuilt GUI bundle
+examples/profiles/  bundled profiles
+scripts/install.mjs manual installer
+test/               bun test suites (not published)
 ```
 
-**Do not copy this partial manifest over the actual `package.json`.** The real package also needs its name, version, dependencies, build scripts, and package files. The GUI output is a single prebuilt CommonJS bundle; updating `src/gui.ts` alone does not rebuild it.
-
-Before making a release, check that the published artifact includes the built GUI bundle and that a clean installation exposes `/profile` in **both** the TUI and Desktop GUI on the targeted OpenCode version.
+The GUI bundle is CommonJS and must not import a module with top-level `await`; the server-side storage module is therefore never imported there — the GUI calls the server through the RPC contract.
 
 ## Troubleshooting
 
 | Symptom | What to check |
 | --- | --- |
-| `/profile` is missing in Desktop | Confirm the plugin is in global `opencode.json(c)`, the Desktop app is using that server, and `./gui-experimental` exists in the package exports and built files. Check Settings > Extensions > Plugins where supported. |
-| `/profile` is missing in the TUI | Confirm `./tui` is exported and the TUI slash-command registration is present; check `opencode plugin list`. |
-| Profiles do not appear | Ensure the profile files are valid `.json` files in the directory expected by your installed version; ensure the provider/model IDs are valid. |
-| A custom agent is missing | Define the custom agent separately in OpenCode; referencing a name in a profile does not create that agent. |
-| Desktop model appears unchanged | The server registry and Desktop Composer keep separate state. Reload the plugin/GUI, check the active session, and confirm the installed bundle is current. |
-| Agent model settings do not update | Verify the active repository selection and corresponding agent registry. A config reload may be required. |
-| Reasoning effort remains at a manually selected value | This is a known limitation of Desktop Composer synchronization; the profile's model assignment is not a guarantee of Composer effort reset. |
-| Build fails with `INVALID_TLA_FORMAT` | Avoid importing a top-level-await module such as `profile-shared.ts` into the CommonJS GUI bundle. Pass selected data over the server RPC contract instead. |
-| Build fails to resolve GUI/Vite packages | Install the repository's declared build dependencies; do not initialize a new unrelated package inside the installed plugin directory. |
+| `/profile` is missing in the Desktop GUI | Confirm the plugin is registered once, the Desktop app uses that server, and the package contains `dist/gui-experimental.cjs`. Check Settings → Extensions → Plugins where available. |
+| `/profile` is missing in the TUI | Confirm `./tui` is exported and the TUI slash command registered; check `opencode plugin list`. |
+| `/profile` appears twice | Two installations are registered (for example npm plus GitHub, or a plugins directory plus an explicit `plugins` path). Keep one. |
+| No profiles appear | Check the setup error in the plugin log: a configured `profilesDir` that is missing or has no `.json` files fails setup by design. Also confirm the JSON is valid and the model IDs exist. |
+| Your custom agent was not changed | The profile was applied and the agent was skipped — the toast lists it. Define the agent in OpenCode first. |
+| The Desktop model looks unchanged | The server registry and the Desktop Composer keep separate state. The Composer selection needs an open session; reopen the session or pick the profile again. |
+| Reasoning effort did not change | Variant synchronization is best-effort and provider/model dependent, and a manually selected Composer effort may stay. The profile's model is still applied. |
+| A stale model after a profile switch | Check that the switch succeeded in a session of the same directory; selections are per repository. Reload the plugin from OpenCode's plugin settings if needed. |
+| Build fails while installing | Installations need no build. If you are developing, run `bun install`, then `bun run build`; do not initialize a different package inside an installed plugin directory. |
 
 ## Compatibility and status
 
-- **Target:** OpenCode V2; V1 compatibility is not claimed.
-- **Platforms:** macOS, Windows, and Linux are intended targets; release-level compatibility must be verified individually.
-- **Interfaces:** Server, TUI, and experimental Desktop GUI.
-- **Experimental limitation:** The GUI plugin SDK is not a stable API across all releases.
-- **First public release:** Not yet published or independently verified from the source provided for this README.
+- **Target:** OpenCode V2 (`@opencode/plugin` 2.3.x). V1 is not supported.
+- **Platforms:** macOS, Linux, and Windows.
+- **Interfaces:** server, TUI, and experimental Desktop GUI, plus the RPC contract in `./rpc`.
+- **Experimental limitation:** the Desktop GUI plugin SDK is not a stable API across releases.
+- **Runtime:** OpenCode supplies the JavaScript runtime; the manual installer script needs Node.js 20 or newer.
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE) for the full license text.
+MIT. See [`LICENSE`](LICENSE) for the full text.
 
 ## OpenCode documentation
 

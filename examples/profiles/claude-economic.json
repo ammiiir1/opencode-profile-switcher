@@ -1,0 +1,37 @@
+{
+  "model": "anthropic/claude-sonnet-5-5",
+  "agent": {
+    "build": {
+      "model": "anthropic/claude-sonnet-5-5",
+      "reasoningEffort": "medium"
+    },
+    "plan": {
+      "model": "anthropic/claude-sonnet-5-5",
+      "reasoningEffort": "medium"
+    },
+    "general": {
+      "model": "anthropic/claude-haiku-5-5",
+      "reasoningEffort": "low"
+    },
+    "explore": {
+      "model": "anthropic/claude-haiku-5-5",
+      "reasoningEffort": "low"
+    },
+    "orchestrator": {
+      "model": "anthropic/claude-sonnet-5-5",
+      "reasoningEffort": "medium"
+    },
+    "coder": {
+      "model": "anthropic/claude-sonnet-5-5",
+      "reasoningEffort": "medium"
+    },
+    "auditor": {
+      "model": "anthropic/claude-sonnet-5-5",
+      "reasoningEffort": "high"
+    },
+    "vision-analyst": {
+      "model": "anthropic/claude-haiku-5-5",
+      "reasoningEffort": "medium"
+    }
+  }
+}
