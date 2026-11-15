@@ -111,6 +111,8 @@ const configDirectory = () => {
 const pluginsDirectory = (target) =>
   target === undefined ? join(configDirectory(), "plugins") : resolve(expandHome(target))
 
+const profilesDirectory = () => join(configDirectory(), "profiles")
+
 const installPath = (plugins) => join(plugins, installDirectory)
 
 const readManifest = async (path) => {
@@ -173,12 +175,17 @@ const warnAboutDuplicateRegistration = async (plugins) => {
   }
 }
 
-const printNextSteps = (destination, plugins) => {
+const printNextSteps = (destination, plugins, profiles) => {
   info("")
   info("Next steps")
   info("  1. Restart OpenCode (or reload its server) so it discovers the plugin.")
   info("  2. Open a repository and run /profile in the TUI or the Desktop GUI.")
-  info(`  3. Bundled examples were installed. For your own profiles, add JSON files to ${join(configDirectory(), "profiles")} or set the plugin's profilesDir option.`)
+  if (profiles === undefined) {
+    info(`  3. Could not create ${profilesDirectory()}. Create it yourself, or set the plugin's profilesDir option; new .json files are discovered after \`opencode reload\`.`)
+  } else {
+    info(`  3. ${profiles} is ready and stays empty until you add profiles. Put your own .json files there, or set the plugin's profilesDir option; new files are discovered after \`opencode reload\`.`)
+    info(`     The six bundled examples live only inside the installed package and are used read-only while ${profiles} has no .json profile. Installing or updating never overwrites or deletes profile files.`)
+  }
   info(`  Remove this copy with: node scripts/install.mjs --remove --target "${plugins}"`)
   info("")
   info(`Installed at ${destination}`)
@@ -208,6 +215,7 @@ const install = async (options) => {
 
   if (options.dryRun) {
     info(`Would copy ${source} (${version}) to ${destination}`)
+    info(`Would create ${profilesDirectory()} if it is missing, without adding any profiles`)
     return
   }
 
@@ -219,7 +227,19 @@ const install = async (options) => {
   await rm(destination, { recursive: true, force: true })
   await rename(staging, destination)
 
-  printNextSteps(destination, plugins)
+  const profiles = profilesDirectory()
+  let profilesReady = false
+
+  try {
+    await mkdir(profiles, { recursive: true })
+    profilesReady = true
+  } catch (error) {
+    warn(
+      `could not create ${profiles}: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+
+  printNextSteps(destination, plugins, profilesReady ? profiles : undefined)
 }
 
 const remove = async (options) => {

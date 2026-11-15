@@ -132,6 +132,14 @@ export type ProfileStore = {
   load(name: ProfileName): Promise<Profile>
 }
 
+const ensureProfilesDirectory = async (directory: string): Promise<void> => {
+  try {
+    await mkdir(directory, { recursive: true })
+  } catch (error) {
+    console.warn(`[profile] could not create ${directory}:`, error)
+  }
+}
+
 export const createProfileStore = async (options: {
   directory: string
   profilesDir?: string
@@ -152,6 +160,7 @@ export const createProfileStore = async (options: {
     source = "configured"
   } else {
     const global = globalProfilesDirectory()
+    await ensureProfilesDirectory(global)
     const globalNames = await readProfileNames(global)
 
     if (globalNames.length > 0) {

@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, test } from "bun:test"
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { afterEach, describe, expect, spyOn, test } from "bun:test"
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises"
 import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import {
@@ -148,6 +148,83 @@ describe("profile discovery", () => {
     const store = await createProfileStore({ directory: await makeDirectory() })
 
     expect(store.source).toBe("bundled")
+  })
+
+  test("creates the global profiles directory empty when it is missing", async () => {
+    const xdg = await makeDirectory()
+    process.env.XDG_CONFIG_HOME = xdg
+    const global = join(xdg, "opencode", "profiles")
+
+    const store = await createProfileStore({ directory: await makeDirectory() })
+
+    expect(store.source).toBe("bundled")
+    expect((await stat(global)).isDirectory()).toBe(true)
+    expect(await readdir(global)).toEqual([])
+  })
+
+  test("leaves existing global profiles untouched and prefers them over the bundled examples", async () => {
+    const xdg = await makeDirectory()
+    process.env.XDG_CONFIG_HOME = xdg
+    const global = join(xdg, "opencode", "profiles")
+    const alpha = validProfile("openai/gpt-6")
+    const beta = validProfile("anthropic/claude-6")
+
+    await writeProfile(global, "alpha", alpha)
+    await writeProfile(global, "beta", beta)
+    await writeFile(join(global, "notes.md"), "not a profile", "utf8")
+
+    const store = await createProfileStore({ directory: await makeDirectory() })
+
+    expect(store.source).toBe("global")
+    expect(store.profiles.map((profile) => profile.name)).toEqual(["alpha", "beta"])
+    expect(await readFile(join(global, "alpha.json"), "utf8")).toBe(alpha)
+    expect(await readFile(join(global, "beta.json"), "utf8")).toBe(beta)
+    expect((await readdir(global)).sort()).toEqual(["alpha.json", "beta.json", "notes.md"])
+  })
+
+  test("never writes to the bundled profiles directory", async () => {
+    process.env.XDG_CONFIG_HOME = await makeDirectory()
+    const before = (await readdir(bundledProfilesDirectory())).sort()
+
+    const store = await createProfileStore({ directory: await makeDirectory() })
+
+    expect(store.source).toBe("bundled")
+    expect((await readdir(bundledProfilesDirectory())).sort()).toEqual(before)
+  })
+
+  test("falls back to the bundled examples when the global directory cannot be created", async () => {
+    const xdg = await makeDirectory()
+    process.env.XDG_CONFIG_HOME = xdg
+    await writeFile(join(xdg, "opencode"), "not a directory", "utf8")
+
+    const warning = spyOn(console, "warn").mockImplementation(() => {})
+
+    try {
+      const store = await createProfileStore({ directory: await makeDirectory() })
+
+      expect(store.source).toBe("bundled")
+      expect(warning).toHaveBeenCalled()
+    } finally {
+      warning.mockRestore()
+    }
+  })
+
+  test("discovers a profile added after a previous store was created", async () => {
+    const xdg = await makeDirectory()
+    process.env.XDG_CONFIG_HOME = xdg
+    const global = join(xdg, "opencode", "profiles")
+
+    const first = await createProfileStore({ directory: await makeDirectory() })
+
+    expect(first.source).toBe("bundled")
+    expect(first.has("added-later")).toBe(false)
+
+    await writeProfile(global, "added-later", validProfile("openai/gpt-6"))
+
+    const reloaded = await createProfileStore({ directory: await makeDirectory() })
+
+    expect(reloaded.source).toBe("global")
+    expect(reloaded.profiles.map((profile) => profile.name)).toEqual(["added-later"])
   })
 
   test("falls back to the bundled examples and loads every one of them", async () => {
