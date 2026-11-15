@@ -1,5 +1,15 @@
 import { Command, Plugin } from "@opencode/plugin/gui";
+import { createEffect, untrack } from "solid-js";
 import { ProfileRpc } from "./rpc";
+
+type DurableModel = {
+  id: string;
+  providerID: string;
+  variant?: string;
+};
+
+const durableModelKey = (model: DurableModel) =>
+  `${model.providerID}/${model.id}/${model.variant ?? "default"}`;
 
 type ProfileSelection = {
   profile: string;
@@ -30,6 +40,56 @@ export default Plugin.define({
   },
 
   setup(ctx) {
+    const observedModels = new Map<string, string>();
+
+    createEffect(() => {
+      const session = ctx.sessions.current();
+      const composer = ctx.screen.current()?.composer;
+
+      if (!session || !composer) return;
+
+      const durable = session.server.data.session.get(session.id)?.model;
+
+      if (!durable) return;
+
+      const key = durableModelKey(durable);
+      const seen = observedModels.get(session.key);
+
+      observedModels.set(session.key, key);
+
+      if (seen === undefined || seen === key) return;
+
+      const current = untrack(() => composer.model());
+
+      if (
+        current?.providerID === durable.providerID &&
+        current?.modelID === durable.id &&
+        current?.variant === durable.variant
+      ) {
+        return;
+      }
+
+      const target = {
+        providerID: durable.providerID,
+        modelID: durable.id,
+        ...(durable.variant ? { variant: durable.variant } : {}),
+      };
+
+      const applied =
+        composer.setModel(target) ||
+        (target.variant !== undefined &&
+          composer.setModel({
+            providerID: target.providerID,
+            modelID: target.modelID,
+          }));
+
+      if (!applied) return;
+
+      if (untrack(() => composer.model())?.variant !== target.variant) {
+        composer.setVariant(target.variant);
+      }
+    });
+
     ctx.add(
       Command,
       (): Command => ({

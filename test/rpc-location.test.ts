@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { Plugin } from "@opencode/plugin/tui"
+import { createRoot } from "solid-js"
 import GuiPlugin from "../src/gui"
 import TuiPlugin from "../src/tui"
 
@@ -72,7 +73,14 @@ describe("profile RPC location", () => {
       add: (_type: unknown, create: typeof factory) => {
         factory = create
       },
-      sessions: { current: () => ({ id: "ses_test", directory }) },
+      sessions: {
+        current: () => ({
+          key: "sidecar\nses_test",
+          id: "ses_test",
+          directory,
+          server: { data: { session: { get: () => undefined } } },
+        }),
+      },
       client: { rpc: rpcClient(records) },
       dialogs: { select: async () => "chosen" },
       screen: {
@@ -87,7 +95,11 @@ describe("profile RPC location", () => {
       toast: { show: () => {} },
     }
 
-    GuiPlugin.setup?.(context as never)
+    const dispose = createRoot((dispose) => {
+      GuiPlugin.setup?.(context as never)
+      return dispose
+    })
+
     await factory().run()
 
     expect(records).toEqual([
@@ -102,5 +114,7 @@ describe("profile RPC location", () => {
         options: { location: { directory } },
       },
     ])
+
+    dispose()
   })
 })
