@@ -15,11 +15,11 @@ Switch between model profiles in **OpenCode V2** without reconfiguring every age
 
 Picking a profile with `/profile` in the Terminal UI:
 
-![Profile selection in the TUI](assets/opencode-profile-switcher-demo-navigation-tui.gif)
+![Profile selection in the TUI](https://raw.githubusercontent.com/ammiiir1/opencode-profile-switcher/main/assets/opencode-profile-switcher-demo-navigation-tui.gif)
 
 The same selection in the experimental Desktop GUI:
 
-![Profile selection in the Desktop GUI](assets/opencode-profile-switcher-demo-navigation-gui.gif)
+![Profile selection in the Desktop GUI](https://raw.githubusercontent.com/ammiiir1/opencode-profile-switcher/main/assets/opencode-profile-switcher-demo-navigation-gui.gif)
 
 ## Reasoning effort is best-effort
 
