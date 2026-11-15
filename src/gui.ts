@@ -52,7 +52,10 @@ export default Plugin.define({
           try {
             const rpc = ctx.client.rpc(ProfileRpc);
 
-            const listed = (await rpc.list({ directory })) as {
+            const listed = (await rpc.list(
+              { directory },
+              { location: { directory } },
+            )) as {
               profiles: Array<{
                 name: string;
                 label: string;
@@ -71,11 +74,14 @@ export default Plugin.define({
 
             if (!selected) return;
 
-            const chosen = (await rpc.select({
-              directory,
-              profile: selected,
-              sessionID: ctx.sessions.current()?.id,
-            })) as ProfileSelection;
+            const chosen = (await rpc.select(
+              {
+                directory,
+                profile: selected,
+                sessionID: ctx.sessions.current()?.id,
+              },
+              { location: { directory } },
+            )) as ProfileSelection;
 
             const composer = ctx.screen.current()?.composer;
 
