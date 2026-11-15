@@ -1,13 +1,9 @@
-import { Plugin } from "@opencode/plugin/tui"
+import type { Plugin } from "@opencode/plugin/tui"
 import { ProfileRpc } from "./rpc"
 
-type Selection = {
-  label: string
-  skipped: string[]
-}
-
 const chooseProfile = async (context: Plugin.Context) => {
-  const location = context.location ?? context.data.location.default()
+  const location =
+    context.location ?? context.data.location.default()
 
   const directory = location.directory
 
@@ -36,28 +32,27 @@ const chooseProfile = async (context: Plugin.Context) => {
     const chosen = (await rpc.select({
       directory,
       profile: selected,
-    })) as Selection
+    })) as {
+      profile: string
+      label: string
+    }
 
     context.ui.toast.show({
       variant: "success",
-      message: `Switched to ${chosen.label}. Reasoning effort is applied only when the model and provider support it.`,
+      message: `Selected ${chosen.label}.`,
     })
-
-    if (chosen.skipped.length > 0) {
-      context.ui.toast.show({
-        variant: "warning",
-        message: `Agents not installed here were skipped: ${chosen.skipped.join(", ")}.`,
-      })
-    }
   } catch (error) {
     context.ui.toast.show({
       variant: "error",
-      message: error instanceof Error ? error.message : "Model profile switch failed",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Model profile switch failed",
     })
   }
 }
 
-export const ModelProfile = Plugin.define({
+export const ModelProfile: Plugin.Definition = {
   id: "profile",
 
   setup(context) {
@@ -75,6 +70,6 @@ export const ModelProfile = Plugin.define({
       ],
     }))
   },
-})
+}
 
 export default ModelProfile

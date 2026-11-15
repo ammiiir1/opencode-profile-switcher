@@ -1,16 +1,19 @@
-import { Model, Plugin, Provider } from "@opencode/plugin"
+import type { Plugin } from "@opencode/plugin"
+import { spawn } from "node:child_process"
 import {
-  chooseInitialProfile,
-  createProfileStore,
+  loadProfile,
   persistSelectedProfile,
+  profileLabels,
   readSelectedProfile,
   type Profile,
-  type ProfileName,
-  type ProfileStore,
 } from "./profile-shared"
 import { ProfileRpc } from "./rpc"
 
+const DEFAULT_PROFILE = "hybrid-deepseek"
 const REPOSITION_DELAY_MS = 100
+const RELOAD_DELAY_MS = 350
+const OPENCODE_EXECUTABLE = "/Users/amir/.opencode/bin/opencode"
+const RELOAD_CWD = "/Users/amir"
 
 type ModelRef = {
   providerID: string
@@ -23,7 +26,7 @@ type Assignment = ModelRef & {
 }
 
 type ActiveProfile = {
-  name: ProfileName
+  name: string
   fallback: ModelRef
   assignments: Assignment[]
 }
@@ -58,84 +61,61 @@ function modelRef(model: string): ModelRef {
   }
 }
 
-function resolveProfile(name: ProfileName, profile: Profile): ActiveProfile {
+function resolveProfile(
+  name: string,
+  profile: Profile,
+): ActiveProfile {
   return {
     name,
     fallback: modelRef(profile.model),
-    assignments: Object.entries(profile.agent).map(([agent, entry]) => ({
-      agent,
-      ...modelRef(entry.model),
-      effort: entry.reasoningEffort,
-    })),
+    assignments: Object.entries(profile.agent).map(
+      ([agent, entry]) => ({
+        agent,
+        ...modelRef(entry.model),
+        effort: entry.reasoningEffort,
+      }),
+    ),
   }
 }
 
-const loadActiveProfile = async (
-  store: ProfileStore,
-  name: ProfileName,
-): Promise<ActiveProfile> => resolveProfile(name, await store.load(name))
-
-async function collectSkippedAgents(
-  ctx: Plugin.Context,
-  profile: Profile,
-): Promise<string[]> {
-  try {
-    const agents = await ctx.agent.list()
-    const known = new Set(agents.data.map((agent) => String(agent.id)))
-
-    return Object.keys(profile.agent).filter((agent) => !known.has(agent))
-  } catch (error) {
-    console.error("[profile] failed to list agents:", error)
-    return []
-  }
+async function loadActiveProfile(
+  name: string,
+): Promise<ActiveProfile> {
+  return resolveProfile(name, await loadProfile(name))
 }
 
-export const ProfileServer = Plugin.define({
+function scheduleServerReload(): void {
+  setTimeout(() => {
+    const child = spawn(
+      OPENCODE_EXECUTABLE,
+      ["reload"],
+      {
+        cwd: RELOAD_CWD,
+        detached: true,
+        stdio: "ignore",
+        shell: false,
+      },
+    )
+
+    child.on("error", (error) => {
+      console.error("[profile] server reload failed:", error)
+    })
+
+    child.unref()
+  }, RELOAD_DELAY_MS)
+}
+
+export const ProfileServer: Plugin.Plugin = {
   id: "profile",
 
   async setup(ctx) {
     const directory = ctx.location.directory
-    const profilesDir = ctx.options.profilesDir
-    const defaultProfile = ctx.options.defaultProfile
 
-    if (profilesDir !== undefined && typeof profilesDir !== "string") {
-      throw new Error("The profile plugin option profilesDir must be a string")
-    }
+    const initialName =
+      (await readSelectedProfile(directory)) ??
+      DEFAULT_PROFILE
 
-    if (defaultProfile !== undefined && typeof defaultProfile !== "string") {
-      throw new Error("The profile plugin option defaultProfile must be a string")
-    }
-
-    const store = await createProfileStore({
-      directory,
-      profilesDir,
-    })
-
-    const initialName = chooseInitialProfile({
-      persisted: await readSelectedProfile(directory),
-      fallback: defaultProfile,
-      profiles: store.profiles,
-    })
-
-    const firstProfile = store.profiles[0]?.name
-
-    if (!initialName || !firstProfile) {
-      throw new Error(`No model profiles are available in ${store.directory}`)
-    }
-
-    let active: ActiveProfile
-
-    try {
-      active = await loadActiveProfile(store, initialName)
-    } catch (error) {
-      if (initialName === firstProfile) throw error
-      console.error(
-        `[profile] could not load ${initialName}; falling back to ${firstProfile}:`,
-        error,
-      )
-      active = await loadActiveProfile(store, firstProfile)
-    }
-
+    let active = await loadActiveProfile(initialName)
     let disposed = false
     let pending: Promise<void> = Promise.resolve()
 
@@ -146,15 +126,26 @@ export const ProfileServer = Plugin.define({
       agent?: ReturnType<typeof setTimeout>
     } = {}
 
-    let modelRegistration: DisposableRegistration | undefined
-    let agentRegistration: DisposableRegistration | undefined
-    let rpcRegistration: DisposableRegistration | undefined
+    let modelRegistration:
+      | DisposableRegistration
+      | undefined
+
+    let agentRegistration:
+      | DisposableRegistration
+      | undefined
+
+    let rpcRegistration:
+      | DisposableRegistration
+      | undefined
 
     const applyModel = () =>
       ctx.model.transform((editor) => {
         const { fallback, assignments } = active
 
-        editor.default.set(fallback.providerID, fallback.modelID)
+        editor.default.set(
+          fallback.providerID,
+          fallback.modelID,
+        )
 
         const registered = new Set<string>()
 
@@ -163,7 +154,11 @@ export const ProfileServer = Plugin.define({
 
           if (!effort) continue
 
-          const key = [entry.providerID, entry.modelID, effort].join("\0")
+          const key = [
+            entry.providerID,
+            entry.modelID,
+            effort,
+          ].join("\0")
 
           if (registered.has(key)) continue
           registered.add(key)
@@ -178,38 +173,48 @@ export const ProfileServer = Plugin.define({
 
           if (!model) continue
 
-          editor.update(String(model.providerID), String(model.id), (draft) => {
-            const variants = (draft.variants ??= [])
-            const exists = variants.some((variant) => String(variant.id) === effort)
+          editor.update(
+            String(model.providerID),
+            String(model.id),
+            (draft) => {
+              const variants = (draft.variants ??= [])
 
-            if (exists) return
+              const exists = variants.some(
+                (variant) =>
+                  String(variant.id) === effort,
+              )
 
-            variants.push({
-              id: Model.VariantID.make(effort),
-              settings: {
-                reasoningEffort: effort,
-              },
-            })
-          })
+              if (exists) return
+
+              variants.push({
+                id: effort as never,
+                settings: {
+                  reasoningEffort: effort,
+                },
+              })
+            },
+          )
         }
       })
 
     const applyAgent = () =>
       ctx.agent.transform((editor) => {
         for (const entry of active.assignments) {
-          if (!editor.get(entry.agent)) continue
-
           editor.update(entry.agent, (agent) => {
             agent.model = {
-              providerID: Provider.ID.make(entry.providerID),
-              id: Model.ID.make(entry.modelID),
-              ...(entry.effort ? { variant: Model.VariantID.make(entry.effort) } : {}),
+              providerID: entry.providerID as never,
+              id: entry.modelID as never,
+              ...(entry.effort
+                ? { variant: entry.effort as never }
+                : {}),
             }
           })
         }
       })
 
-    const enqueue = (operation: () => Promise<void>): Promise<void> => {
+    const enqueue = (
+      operation: () => Promise<void>,
+    ): Promise<void> => {
       const next = pending
         .catch(() => {})
         .then(async () => {
@@ -222,19 +227,13 @@ export const ProfileServer = Plugin.define({
     }
 
     const refreshActive = async () => {
-      const persisted = await readSelectedProfile(directory)
+      const selected =
+        (await readSelectedProfile(directory)) ??
+        DEFAULT_PROFILE
 
-      const name = chooseInitialProfile({
-        persisted,
-        fallback: active.name,
-        profiles: store.profiles,
-      })
+      const next = await loadActiveProfile(selected)
 
-      if (!name) {
-        throw new Error(`No model profiles are available in ${store.directory}`)
-      }
-
-      active = await loadActiveProfile(store, name)
+      active = next
     }
 
     const reposition = async (domain: Domain) => {
@@ -267,16 +266,23 @@ export const ProfileServer = Plugin.define({
             await refreshActive()
             await reposition(domain)
           } catch (error) {
-            console.error(`[profile] failed to refresh ${domain}:`, error)
+            console.error(
+              `[profile] failed to refresh ${domain}:`,
+              error,
+            )
           }
         })
       }, REPOSITION_DELAY_MS)
     }
 
-    const pinSession = async (session: SessionInfo) => {
+    const pinSession = async (
+      session: SessionInfo,
+    ) => {
       if (disposed || session.parentID) return
 
-      const assigned = active.assignments.find((entry) => entry.agent === session.agent)
+      const assigned = active.assignments.find(
+        (entry) => entry.agent === session.agent,
+      )
 
       const target = assigned ?? active.fallback
       const variant = assigned?.effort
@@ -290,27 +296,22 @@ export const ProfileServer = Plugin.define({
         return
       }
 
-      const model = {
-        id: target.modelID,
-        providerID: target.providerID,
-      }
-
       try {
-        try {
-          await ctx.session.switchModel({
-            sessionID: session.sessionID,
-            model: variant ? { ...model, variant } : model,
-          })
-        } catch (error) {
-          if (!variant) throw error
-
-          await ctx.session.switchModel({
-            sessionID: session.sessionID,
-            model,
-          })
-        }
+        await ctx.session.switchModel({
+          sessionID: session.sessionID as never,
+          model: {
+            providerID: target.providerID as never,
+            id: target.modelID as never,
+            ...(variant
+              ? { variant: variant as never }
+              : {}),
+          },
+        })
       } catch (error) {
-        console.error("[profile] failed to configure new session:", error)
+        console.error(
+          "[profile] failed to configure new session:",
+          error,
+        )
       }
     }
 
@@ -330,101 +331,153 @@ export const ProfileServer = Plugin.define({
         timers.agent = undefined
       }
 
-      void pending.catch(() => {}).then(async () => {
-        await Promise.allSettled([
-          modelRegistration?.dispose(),
-          agentRegistration?.dispose(),
-          rpcRegistration?.dispose(),
-        ])
-      })
+      void pending
+        .catch(() => {})
+        .then(async () => {
+          await Promise.allSettled([
+            modelRegistration?.dispose(),
+            agentRegistration?.dispose(),
+            rpcRegistration?.dispose(),
+          ])
+        })
     }
 
     try {
       modelRegistration = await applyModel()
       agentRegistration = await applyAgent()
 
-      rpcRegistration = await ctx.rpc.register(ProfileRpc, {
-        list: async (input) => {
-          const { directory: selectedDirectory } = input as { directory: string }
+      rpcRegistration = await ctx.rpc.register(
+        ProfileRpc,
+        {
+          list: async (input) => {
+            const { directory: selectedDirectory } =
+              input as {
+                directory: string
+              }
 
-          const profiles = store.profiles.map((profile) => ({
-            name: profile.name,
-            label: profile.label,
-          }))
+            const profiles = Object.entries(
+              profileLabels,
+            ).map(([name, label]) => ({
+              name,
+              label,
+            }))
 
-          const stored = await readSelectedProfile(selectedDirectory)
-
-          if (stored === undefined || !store.has(stored)) {
-            return { profiles }
-          }
-
-          return { profiles, current: stored }
-        },
-
-        select: async (input, context) => {
-          const { directory: selectedDirectory, profile: requestedName } = input as {
-            directory: string
-            profile: string
-          }
-
-          let loaded: Profile
-          let next: ActiveProfile
-
-          try {
-            loaded = await store.load(requestedName)
-            next = resolveProfile(requestedName, loaded)
-          } catch (error) {
-            return context.error(
-              "invalid",
-              error instanceof Error
-                ? error.message
-                : `Profile ${requestedName} failed validation`,
-              { profile: requestedName },
+            const current = await readSelectedProfile(
+              selectedDirectory,
             )
-          }
 
-          const skipped = await collectSkippedAgents(ctx, loaded)
+            return current === undefined
+              ? { profiles }
+              : { profiles, current }
+          },
 
-          try {
-            await persistSelectedProfile(selectedDirectory, requestedName)
-          } catch (error) {
-            return context.error(
-              "invalid",
-              error instanceof Error
-                ? error.message
-                : "Failed to save the selected profile",
-              { profile: requestedName },
-            )
-          }
-
-          if (selectedDirectory === directory) {
-            try {
-              await enqueue(async () => {
-                active = next
-                await reposition("model")
-                await reposition("agent")
-              })
-            } catch (error) {
-              console.error("[profile] failed to apply the selected profile:", error)
+          select: async (input, context) => {
+            const {
+              directory: selectedDirectory,
+              profile: requestedName,
+            } = input as {
+              directory: string
+              profile: string
             }
-          }
 
-          return {
-            profile: requestedName,
-            label: store.label(requestedName),
-            model: {
-              providerID: next.fallback.providerID,
-              modelID: next.fallback.modelID,
-            },
-            skipped,
-          }
+            let loaded: Profile
+            let next: ActiveProfile
+
+            try {
+              loaded = await loadProfile(requestedName)
+              next = resolveProfile(
+                requestedName,
+                loaded,
+              )
+            } catch (error) {
+              return context.error(
+                "invalid",
+                error instanceof Error
+                  ? error.message
+                  : `Profile ${requestedName} failed validation`,
+                { profile: requestedName },
+              )
+            }
+
+            const agents = await ctx.agent.list()
+
+            if (agents?.data) {
+              const known = new Set(
+                agents.data.map(
+                  (agent) => String(agent.id),
+                ),
+              )
+
+              const unknown = Object.keys(
+                loaded.agent,
+              ).find(
+                (agent) =>
+                  !known.has(agent) &&
+                  agent !== "general",
+              )
+
+              if (unknown) {
+                return context.error(
+                  "unknown_agent",
+                  `Unknown agent: ${unknown}`,
+                  { agent: unknown },
+                )
+              }
+            }
+
+            try {
+              await persistSelectedProfile(
+                selectedDirectory,
+                requestedName,
+              )
+            } catch (error) {
+              return context.error(
+                "invalid",
+                error instanceof Error
+                  ? error.message
+                  : "Failed to save the selected profile",
+                { profile: requestedName },
+              )
+            }
+
+            if (selectedDirectory === directory) {
+              active = next
+            }
+
+            const workflow = next.assignments.find(
+              (entry) =>
+                entry.agent === "workflow",
+            )
+
+            const target =
+              workflow ?? next.fallback
+
+            const result = {
+              profile: requestedName,
+              label: profileLabels[requestedName],
+              model: {
+                providerID: target.providerID,
+                modelID: target.modelID,
+                ...(workflow?.effort
+                  ? { variant: workflow.effort }
+                  : {}),
+              },
+            }
+
+            scheduleServerReload()
+
+            return result
+          },
         },
-      })
+      )
 
       void (async () => {
         try {
           for await (const event of ctx.event.subscribe({
-            types: ["config.updated", "session.created"],
+            types: [
+              "config.updated",
+              "session.created",
+            ],
             signal: controller.signal,
           })) {
             if (disposed) break
@@ -436,14 +489,22 @@ export const ProfileServer = Plugin.define({
             }
 
             if (event.type === "session.created") {
-              if (event.data.location.directory !== directory) continue
+              if (
+                event.data.location.directory !==
+                directory
+              ) {
+                continue
+              }
 
               await pinSession(event.data)
             }
           }
         } catch (error) {
           if (!controller.signal.aborted) {
-            console.error("[profile] event subscription failed:", error)
+            console.error(
+              "[profile] event subscription failed:",
+              error,
+            )
           }
         }
       })()
@@ -454,6 +515,6 @@ export const ProfileServer = Plugin.define({
       throw error
     }
   },
-})
+}
 
 export default ProfileServer

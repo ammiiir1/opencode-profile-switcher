@@ -58,12 +58,8 @@ export const ProfileRpc = Rpc.define({
             required: ["providerID", "modelID"],
             additionalProperties: false,
           },
-          skipped: {
-            type: "array",
-            items: { type: "string" },
-          },
         },
-        required: ["profile", "label", "model", "skipped"],
+        required: ["profile", "label", "model"],
         additionalProperties: false,
       },
       errors: {
@@ -73,6 +69,14 @@ export const ProfileRpc = Rpc.define({
             profile: { type: "string" },
           },
           required: ["profile"],
+          additionalProperties: false,
+        },
+        unknown_agent: {
+          type: "object",
+          properties: {
+            agent: { type: "string" },
+          },
+          required: ["agent"],
           additionalProperties: false,
         },
       },
