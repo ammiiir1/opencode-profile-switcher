@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "name": "opencode-profile-switcher",
+  "name": "@ammiiir1/opencode-profile-switcher",
   "version": "0.1.0",
   "description": "OpenCode V2 plugin that switches per-repository model profiles across agents, with TUI, experimental GUI and RPC integrations.",
   "type": "module",
@@ -39,6 +39,9 @@
   ],
   "engines": {
     "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "vite build",

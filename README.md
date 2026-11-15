@@ -30,11 +30,15 @@ The Desktop GUI extension API is experimental and can change between OpenCode ve
 
 ## Install — use one method only
 
+The npm package is scoped: **`@ammiiir1/opencode-profile-switcher`**. The GitHub repository keeps its unscoped name, `ammiiir1/opencode-profile-switcher`. Both install paths below refer to the same plugin. These are the instructions for the first published release: the npm commands apply once that release is available, while the GitHub install reads the repository directly.
+
+From npm:
+
 ```sh
-opencode plugin add opencode-profile-switcher
+opencode plugin add @ammiiir1/opencode-profile-switcher
 ```
 
-Or install straight from GitHub:
+Or straight from the GitHub repository:
 
 ```sh
 opencode plugin add github:ammiiir1/opencode-profile-switcher
@@ -48,7 +52,7 @@ opencode plugin add github:ammiiir1/opencode-profile-switcher
 
 ```sh
 # npm, exact version
-opencode plugin add opencode-profile-switcher@0.1.0
+opencode plugin add @ammiiir1/opencode-profile-switcher@0.1.0
 
 # GitHub, npm git-ref syntax (tag or commit)
 opencode plugin add github:ammiiir1/opencode-profile-switcher#v0.1.0
@@ -59,8 +63,8 @@ opencode plugin add github:ammiiir1/opencode-profile-switcher#v0.1.0
 ```sh
 opencode plugin list
 opencode plugin check
-opencode plugin update opencode-profile-switcher
-opencode plugin remove opencode-profile-switcher
+opencode plugin update @ammiiir1/opencode-profile-switcher
+opencode plugin remove @ammiiir1/opencode-profile-switcher
 ```
 
 Open or reload OpenCode, then type `/profile` in the TUI or the Desktop GUI. Desktop loads GUI extensions from its own server's plugin configuration; if you use an external server, confirm which server the application is connected to.
@@ -69,9 +73,9 @@ Open or reload OpenCode, then type `/profile` in the TUI or the Desktop GUI. Des
 
 Use this when you do not want a package registry. No build step is required: the package ships its prebuilt GUI bundle.
 
-1. Get a **built package**: a release archive from this repository, or a tarball produced by `npm pack opencode-profile-switcher`. A GitHub-generated *source code* archive also works, because `dist/gui-experimental.cjs` is committed.
+1. Get a **built package**: a release archive from this repository, or a tarball produced by `npm pack @ammiiir1/opencode-profile-switcher`. A GitHub-generated *source code* archive also works, because `dist/gui-experimental.cjs` is committed.
 2. Keep the package root intact — it must contain `package.json` (with its `exports`), `src/`, `dist/`, and `examples/`.
-3. Place that directory in your OpenCode global plugins directory, as an immediate subdirectory named `opencode-profile-switcher`.
+3. Place that directory in your OpenCode global plugins directory, as an immediate subdirectory named `opencode-profile-switcher` (flat, without the `@ammiiir1` scope nesting).
 4. Restart or reload OpenCode and check `/profile` in the interfaces you use.
 
 Default global plugin directories:
@@ -86,7 +90,7 @@ OpenCode also supports custom config locations; use the directory **your** OpenC
 
 ### Optional installer script
 
-The repository includes a small cross-platform installer that copies the built package into that directory for you. It requires Node.js 20 or newer, never edits OpenCode configuration, and does not build anything.
+The repository includes a small cross-platform installer that copies the built package into that directory for you. It requires Node.js 20 or newer, never edits OpenCode configuration, and does not build anything. It installs into the flat `opencode-profile-switcher` directory while validating the scoped package name `@ammiiir1/opencode-profile-switcher`.
 
 ```sh
 # from a checkout or an extracted release archive
@@ -109,7 +113,7 @@ node scripts/install.mjs --remove
 | `--remove` | Remove a copy previously installed by this script |
 | `--dry-run` | Print the actions without touching the filesystem |
 
-Before copying, the script validates the package name, `dist/gui-experimental.cjs`, and the six bundled example profiles. It refuses to overwrite or remove a directory whose `package.json` belongs to another package, and it warns when `opencode.json`/`opencode.jsonc` already references the plugin so you do not register it twice.
+Before copying, the script validates the scoped package name, `dist/gui-experimental.cjs`, and the six bundled example profiles. It refuses to overwrite or remove a directory whose `package.json` belongs to another package, and it warns when `opencode.json`/`opencode.jsonc` already references the plugin so you do not register it twice.
 
 The alternative to the plugins directory is an explicit path, which you must also remove when uninstalling:
 
@@ -175,7 +179,7 @@ Profile names come from file names, sorted alphabetically; labels are derived fr
   "$schema": "https://opencode.ai/config.json",
   "plugins": [
     {
-      "package": "opencode-profile-switcher",
+      "package": "@ammiiir1/opencode-profile-switcher",
       "options": {
         "profilesDir": "./profiles",
         "defaultProfile": "gpt-economic"
@@ -225,8 +229,8 @@ TUI and Desktop GUI are separate plugin interfaces. `/profile` is registered in 
 
 ```sh
 opencode plugin check
-opencode plugin update opencode-profile-switcher
-opencode plugin remove opencode-profile-switcher
+opencode plugin update @ammiiir1/opencode-profile-switcher
+opencode plugin remove @ammiiir1/opencode-profile-switcher
 ```
 
 For manual installations, replace or remove the installed directory (or use `node scripts/install.mjs --remove`), then reload OpenCode. If you added an explicit `plugins` path, remove that entry too.

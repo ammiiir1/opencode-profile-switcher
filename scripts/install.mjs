@@ -4,7 +4,9 @@ import { homedir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-const packageName = "opencode-profile-switcher"
+// The npm package is scoped, but OpenCode needs one flat plugin directory.
+const packageName = "@ammiiir1/opencode-profile-switcher"
+const installDirectory = "opencode-profile-switcher"
 const requiredProfiles = [
   "claude-economic",
   "claude-performance",
@@ -28,8 +30,9 @@ const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)))
 
 const usage = `Usage: node scripts/install.mjs [options]
 
-Installs the built package into OpenCode's global plugins directory, where
-OpenCode discovers it automatically. No build step is required.
+Installs ${packageName} into OpenCode's global plugins directory, as the flat
+directory ${installDirectory}/, where OpenCode discovers it automatically.
+No build step is required.
 
 Options:
   --from <dir>     Package directory to install (default: ${repositoryRoot})
@@ -108,7 +111,7 @@ const configDirectory = () => {
 const pluginsDirectory = (target) =>
   target === undefined ? join(configDirectory(), "plugins") : resolve(expandHome(target))
 
-const installPath = (plugins) => join(plugins, packageName)
+const installPath = (plugins) => join(plugins, installDirectory)
 
 const readManifest = async (path) => {
   try {
@@ -162,9 +165,9 @@ const warnAboutDuplicateRegistration = async (plugins) => {
       continue
     }
 
-    if (text.includes(packageName)) {
+    if (text.includes(packageName) || text.includes(installDirectory)) {
       warn(
-        `${join(directory, name)} already references ${packageName}. Do not install the plugin twice: keep either that entry or the auto-discovered copy, not both. This script never edits OpenCode configuration.`,
+        `${join(directory, name)} already references this plugin (${packageName}). Do not install the plugin twice: keep either that entry or the auto-discovered copy, not both. This script never edits OpenCode configuration.`,
       )
     }
   }
