@@ -11,7 +11,7 @@ const modelPattern = /^[^/\s]+\/[^/\s]+$/
 
 const bundledProfilesDirectory = new URL("../examples/profiles/", import.meta.url)
 
-const userProfilesDirectory = () =>
+export const userProfilesDirectory = () =>
   pathToFileURL(
     `${join(
       process.env.XDG_CONFIG_HOME?.trim() || join(homedir(), ".config"),

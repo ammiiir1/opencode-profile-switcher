@@ -1,19 +1,18 @@
 import type { Plugin } from "@opencode/plugin"
 import { spawn } from "node:child_process"
 import {
+  discoverProfiles,
   loadProfile,
   persistSelectedProfile,
   profileLabels,
   readSelectedProfile,
+  userProfilesDirectory,
   type Profile,
 } from "./profile-shared"
 import { ProfileRpc } from "./rpc"
 
-const DEFAULT_PROFILE = "hybrid-deepseek"
 const REPOSITION_DELAY_MS = 100
 const RELOAD_DELAY_MS = 350
-const OPENCODE_EXECUTABLE = "/Users/amir/.opencode/bin/opencode"
-const RELOAD_CWD = "/Users/amir"
 
 type ModelRef = {
   providerID: string
@@ -84,13 +83,32 @@ async function loadActiveProfile(
   return resolveProfile(name, await loadProfile(name))
 }
 
-function scheduleServerReload(): void {
+async function firstUserProfile(): Promise<string | undefined> {
+  try {
+    return Object.keys(
+      await discoverProfiles(userProfilesDirectory()),
+    ).at(0)
+  } catch {
+    return undefined
+  }
+}
+
+async function initialProfileName(
+  directory: string,
+): Promise<string | undefined> {
+  return (
+    (await readSelectedProfile(directory)) ??
+    (await firstUserProfile())
+  )
+}
+
+function scheduleServerReload(directory: string): void {
   setTimeout(() => {
     const child = spawn(
-      OPENCODE_EXECUTABLE,
+      "opencode",
       ["reload"],
       {
-        cwd: RELOAD_CWD,
+        cwd: directory,
         detached: true,
         stdio: "ignore",
         shell: false,
@@ -111,11 +129,13 @@ export const ProfileServer: Plugin.Plugin = {
   async setup(ctx) {
     const directory = ctx.location.directory
 
-    const initialName =
-      (await readSelectedProfile(directory)) ??
-      DEFAULT_PROFILE
+    const initialName = await initialProfileName(directory)
 
-    let active = await loadActiveProfile(initialName)
+    let active: ActiveProfile | undefined =
+      initialName === undefined
+        ? undefined
+        : await loadActiveProfile(initialName)
+
     let disposed = false
     let pending: Promise<void> = Promise.resolve()
 
@@ -138,9 +158,13 @@ export const ProfileServer: Plugin.Plugin = {
       | DisposableRegistration
       | undefined
 
-    const applyModel = () =>
-      ctx.model.transform((editor) => {
-        const { fallback, assignments } = active
+    const applyModel = () => {
+      const profile = active
+
+      if (!profile) return
+
+      return ctx.model.transform((editor) => {
+        const { fallback, assignments } = profile
 
         editor.default.set(
           fallback.providerID,
@@ -196,10 +220,15 @@ export const ProfileServer: Plugin.Plugin = {
           )
         }
       })
+    }
 
-    const applyAgent = () =>
-      ctx.agent.transform((editor) => {
-        for (const entry of active.assignments) {
+    const applyAgent = () => {
+      const profile = active
+
+      if (!profile) return
+
+      return ctx.agent.transform((editor) => {
+        for (const entry of profile.assignments) {
           editor.update(entry.agent, (agent) => {
             agent.model = {
               providerID: entry.providerID as never,
@@ -211,6 +240,7 @@ export const ProfileServer: Plugin.Plugin = {
           })
         }
       })
+    }
 
     const enqueue = (
       operation: () => Promise<void>,
@@ -227,13 +257,12 @@ export const ProfileServer: Plugin.Plugin = {
     }
 
     const refreshActive = async () => {
-      const selected =
-        (await readSelectedProfile(directory)) ??
-        DEFAULT_PROFILE
+      const selected = await initialProfileName(directory)
 
-      const next = await loadActiveProfile(selected)
-
-      active = next
+      active =
+        selected === undefined
+          ? undefined
+          : await loadActiveProfile(selected)
     }
 
     const reposition = async (domain: Domain) => {
@@ -278,13 +307,15 @@ export const ProfileServer: Plugin.Plugin = {
     const pinSession = async (
       session: SessionInfo,
     ) => {
-      if (disposed || session.parentID) return
+      const profile = active
 
-      const assigned = active.assignments.find(
+      if (disposed || session.parentID || !profile) return
+
+      const assigned = profile.assignments.find(
         (entry) => entry.agent === session.agent,
       )
 
-      const target = assigned ?? active.fallback
+      const target = assigned ?? profile.fallback
       const variant = assigned?.effort
       const current = session.model
 
@@ -464,7 +495,7 @@ export const ProfileServer: Plugin.Plugin = {
               },
             }
 
-            scheduleServerReload()
+            scheduleServerReload(selectedDirectory)
 
             return result
           },

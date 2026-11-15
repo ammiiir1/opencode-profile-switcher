@@ -1,4 +1,4 @@
-# OpenCode Profile Switcher
+# OpenCode V2 Profile Switcher
 
 Switch between model profiles in **OpenCode V2** without reconfiguring every agent by hand. A profile names a default model and, optionally, a model and reasoning effort for each agent. The selected profile is stored per repository and applied to the server's model and agent registries, with integrations for the **Terminal UI (TUI)** and the experimental **Desktop GUI**.
 
@@ -166,6 +166,8 @@ A profile is a JSON file:
 - `build` and `plan` are built-in primary agents; `general` and `explore` are built-in subagents. `orchestrator`, `coder`, `auditor`, and `vision-analyst` in the bundled examples are **illustrative custom agent names** — a profile does not create agents.
 - Files must be `.json`; no `//` comments.
 
+You write your own profiles: create a `.json` file in the global profiles directory (`$XDG_CONFIG_HOME/opencode/profiles` or `~/.config/opencode/profiles`) and run `opencode reload` so discovery picks it up.
+
 ### Where profiles are discovered
 
 In order:
@@ -193,8 +195,7 @@ Profile names come from file names, sorted alphabetically; labels are derived fr
     {
       "package": "@ammiiir1/opencode-profile-switcher",
       "options": {
-        "profilesDir": "./profiles",
-        "defaultProfile": "gpt-economic"
+        "profilesDir": "./profiles"
       }
     }
   ]
@@ -204,9 +205,8 @@ Profile names come from file names, sorted alphabetically; labels are derived fr
 | Option | Purpose |
 | --- | --- |
 | `profilesDir` | Directory to read profiles from. Relative paths resolve against the workspace directory. It must already contain a `.json` profile: a missing or empty configured directory is a setup error, not a directory the plugin creates. |
-| `defaultProfile` | Profile used when the repository has no stored selection yet. |
 
-Initial selection is resolved as: stored per-repository selection (when it still exists) → `defaultProfile` → first discovered profile. No profile name is hardcoded, so a clean install works without the examples matching your personal setup.
+Initial selection is resolved as: the stored per-repository selection, when one exists → the first profile in the global profiles directory, ordered alphabetically by file name. No profile name is hardcoded, and a bundled example is never selected automatically: while your global profiles directory has no `.json` profile, no profile is active until you choose one.
 
 ### Bundled example profiles
 
@@ -221,11 +221,11 @@ Initial selection is resolved as: stored per-repository selection (when it still
 
 Names and model IDs are illustrative. Connect the required providers, and check that each model/effort setting exists for your OpenCode version and provider. **economic** and **performance** express priorities, not a guarantee about cost or benchmark results.
 
-These six files exist only in the package's `examples/profiles/` directory, and they are a read-only fallback rather than templates that get installed: no install, update, reload, or first run copies them into your global profiles directory, and the plugin never writes to that bundled directory. While your global directory has no `.json` profile, `/profile` shows these examples, so a clean install works immediately. To start from one, copy the file yourself into the global directory and adapt it.
+These six files exist only in the package's `examples/profiles/` directory. They are templates: each one shows the profile structure, a complete set of model and reasoning-effort assignments, and how custom agents are referenced. No install, update, reload, or first run copies them into your global profiles directory, and the plugin never writes to that bundled directory. While your global directory has no `.json` profile, `/profile` lists these examples, and none of them is selected automatically. To start from one, copy the file yourself into the global directory and adapt it; define the custom agents it names before selecting it.
 
 ### Custom agents
 
-Agent assignments are applied only to agents that exist on your install. Agents a profile names but your OpenCode does not define are skipped instead of rejecting the profile, and the skipped names are reported in a toast. That is why the bundled examples work on a clean install while custom agent names remain optional.
+Referencing an agent in a profile does not create that agent: a profile only assigns a model and reasoning effort to agents your OpenCode installation already defines. The custom agent names in the examples — `orchestrator`, `coder`, `auditor`, `vision-analyst` — are illustrative, so define those agents before you select an example that names them. Selecting a profile that references an agent your installation does not define fails with `Unknown agent: <name>`, and the selection is neither saved nor applied. The built-in `build`, `plan`, `general`, and `explore` agents need no setup.
 
 ## Use `/profile`
 
@@ -291,7 +291,7 @@ The GUI bundle is CommonJS and must not import a module with top-level `await`; 
 | No profiles appear | A clean install shows the six bundled examples and leaves the global profiles directory empty until you add a profile. Check the setup error in the plugin log: a configured `profilesDir` that is missing or has no `.json` files fails setup by design, and is not created for you. Also confirm the JSON is valid and the model IDs exist. |
 | A profile you just added is not listed | Discovery runs at plugin setup: run `opencode reload` (or restart OpenCode) after adding a `.json` file to the global profiles directory, then open `/profile`. |
 | Your profiles are missing after an update or uninstall | They should not be: installing, updating, reloading, and `node scripts/install.mjs --remove` never touch the global profiles directory or per-repository selections. Confirm which config home your OpenCode reads: `$XDG_CONFIG_HOME/opencode/profiles` versus `~/.config/opencode/profiles`. |
-| Your custom agent was not changed | The profile was applied and the agent was skipped — the toast lists it. Define the agent in OpenCode first. |
+| Your custom agent was not changed | The switch failed with `Unknown agent: <name>` because the profile references an agent your installation does not define; nothing was saved. Define the agent in OpenCode first. |
 | The Desktop model looks unchanged | The server registry and the Desktop Composer keep separate state. The Composer selection needs an open session; reopen the session or pick the profile again. |
 | Reasoning effort did not change | Variant synchronization is best-effort and provider/model dependent, and a manually selected Composer effort may stay. The profile's model is still applied. |
 | A stale model after a profile switch | Check that the switch succeeded in a session of the same directory; selections are per repository. Reload the plugin from OpenCode's plugin settings if needed. |
