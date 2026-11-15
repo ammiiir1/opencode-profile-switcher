@@ -11,6 +11,16 @@ Switch between model profiles in **OpenCode V2** without reconfiguring every age
 - Switch the open root session's model and schedule an OpenCode server reload after a profile selection.
 - Ship server, TUI, Desktop GUI, and RPC integrations in one package.
 
+## Demo
+
+Picking a profile with `/profile` in the Terminal UI:
+
+![Profile selection in the TUI](assets/opencode-profile-switcher-demo-navigation-tui.gif)
+
+The same selection in the experimental Desktop GUI:
+
+![Profile selection in the Desktop GUI](assets/opencode-profile-switcher-demo-navigation-gui.gif)
+
 ## Reasoning effort is best-effort
 
 A profile's `reasoningEffort` is applied as a model variant. That synchronization is **best-effort and depends on model and provider support**:
