@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto"
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises"
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { pathToFileURL } from "node:url"
 
 export type ProfileName = string
@@ -8,6 +9,24 @@ export type AgentProfile = { model: string; reasoningEffort?: string }
 export type Profile = { model: string; agent: Record<string, AgentProfile> }
 
 const bundledProfilesDirectory = new URL("../examples/profiles/", import.meta.url)
+const jsonExtension = /\.json$/i
+
+type ProfileEntry = { name: string; file: string }
+
+const profileEntries = async (directory: URL): Promise<ProfileEntry[]> => {
+  const entries = await readdir(directory, { withFileTypes: true })
+  return entries
+    .filter(
+      (entry) =>
+        (entry.isFile() || entry.isSymbolicLink()) &&
+        jsonExtension.test(entry.name),
+    )
+    .map((entry) => ({ name: entry.name.slice(0, -5), file: entry.name }))
+    .filter((entry) => entry.name.length > 0)
+    .sort((left, right) =>
+      left.name < right.name ? -1 : left.name > right.name ? 1 : 0,
+    )
+}
 
 export const userProfilesDirectory = () =>
   pathToFileURL(
@@ -18,13 +37,12 @@ export const userProfilesDirectory = () =>
     )}/`,
   )
 
-const resolveProfilesDirectory = async (): Promise<URL> => {
+export const resolveProfilesDirectory = async (): Promise<URL> => {
   const user = userProfilesDirectory()
 
   try {
     await mkdir(user, { recursive: true })
-    const entries = await readdir(user, { withFileTypes: true })
-    if (entries.some((entry) => entry.isFile() && entry.name.endsWith(".json"))) {
+    if ((await profileEntries(user)).length > 0) {
       return user
     }
   } catch {}
@@ -33,23 +51,25 @@ const resolveProfilesDirectory = async (): Promise<URL> => {
 }
 
 const profilesDirectory = await resolveProfilesDirectory()
+const profileFiles = new Map<ProfileName, string>()
 
 export const discoverProfiles = async (directory: URL = profilesDirectory) => {
-  const entries = await readdir(directory, { withFileTypes: true })
-  return Object.fromEntries(entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
-    .map((entry) => entry.name.slice(0, -5))
-    .filter((name) => name.length > 0)
-    .sort()
-    .map((name) => [name, name.split("-").map((part) =>
-      ["gpt", "glm"].includes(part) ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1)
-    ).join(" ")]))
+  const entries = await profileEntries(directory)
+
+  if (directory.href === profilesDirectory.href) {
+    profileFiles.clear()
+    for (const entry of entries) profileFiles.set(entry.name, entry.file)
+  }
+
+  return Object.fromEntries(entries.map((entry) => [entry.name, entry.name.split("-").map((part) =>
+    ["gpt", "glm"].includes(part) ? part.toUpperCase() : part.charAt(0).toUpperCase() + part.slice(1)
+  ).join(" ")]))
 }
 
 export const profileLabels: Record<ProfileName, string> = await discoverProfiles()
 
 const profilePath = (name: ProfileName) =>
-  new URL(`${encodeURIComponent(name)}.json`, profilesDirectory)
+  new URL(`${encodeURIComponent(profileFiles.get(name) ?? `${name}.json`)}`, profilesDirectory)
 
 export const profileStatePath = (directory: string) =>
   join(directory, ".opencode", "model-profile.json")
@@ -103,10 +123,25 @@ export const readSelectedProfile = async (directory: string): Promise<ProfileNam
   }
 }
 
-export const persistSelectedProfile = async (directory: string, profile: ProfileName) => {
-  const path = profileStatePath(directory)
-  const temporary = `${path}.tmp-${process.pid}`
-  await mkdir(join(directory, ".opencode"), { recursive: true })
+const pendingWrites = new Map<string, Promise<void>>()
+
+const writeSelectedProfile = async (path: string, profile: ProfileName) => {
+  const temporary = `${path}.tmp-${process.pid}-${randomUUID()}`
+  await mkdir(dirname(path), { recursive: true })
   await writeFile(temporary, `${JSON.stringify({ profile }, null, 2)}\n`, "utf8")
   await rename(temporary, path)
+}
+
+export const persistSelectedProfile = async (directory: string, profile: ProfileName) => {
+  const path = profileStatePath(directory)
+  const previous = pendingWrites.get(path) ?? Promise.resolve()
+  const next = previous.catch(() => {}).then(() => writeSelectedProfile(path, profile))
+
+  pendingWrites.set(path, next)
+
+  try {
+    await next
+  } finally {
+    if (pendingWrites.get(path) === next) pendingWrites.delete(path)
+  }
 }

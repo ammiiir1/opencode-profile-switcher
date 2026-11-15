@@ -1,5 +1,6 @@
 import type { Plugin } from "@opencode/plugin"
 import { spawn } from "node:child_process"
+import { resolve as resolvePath } from "node:path"
 import {
   discoverProfiles,
   loadProfile,
@@ -9,10 +10,12 @@ import {
   userProfilesDirectory,
   type Profile,
 } from "./profile-shared"
+import { reloadCommand } from "./reload-command"
 import { ProfileRpc } from "./rpc"
 
 const REPOSITION_DELAY_MS = 100
 const RELOAD_DELAY_MS = 350
+const RELOAD_TIMEOUT_MS = 10_000
 
 type ModelRef = {
   providerID: string
@@ -102,21 +105,65 @@ async function initialProfileName(
   )
 }
 
+function sameDirectory(left: string, right: string): boolean {
+  const normalize = (value: string) => {
+    const resolved = resolvePath(value)
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved
+  }
+
+  return normalize(left) === normalize(right)
+}
+
 function scheduleServerReload(directory: string): void {
   setTimeout(() => {
-    const child = spawn(
-      "opencode",
-      ["reload"],
-      {
-        cwd: directory,
-        detached: true,
-        stdio: "ignore",
-        shell: false,
-      },
-    )
+    const launch = reloadCommand()
+
+    if (launch === undefined) {
+      console.error(
+        "[profile] profile selection saved, but the opencode launcher could not be found to reload the server; reload OpenCode manually.",
+      )
+      return
+    }
+
+    const child = spawn(launch.command, launch.args, {
+      cwd: directory,
+      detached: true,
+      stdio: "ignore",
+      shell: false,
+      windowsHide: true,
+      ...(launch.windowsVerbatimArguments
+        ? { windowsVerbatimArguments: true }
+        : {}),
+    })
+
+    let timedOut = false
+
+    const timer = setTimeout(() => {
+      timedOut = true
+      console.error(
+        "[profile] profile selection saved, but the OpenCode server reload timed out; sent a termination signal to the reload process.",
+      )
+      child.kill()
+    }, RELOAD_TIMEOUT_MS)
 
     child.on("error", (error) => {
-      console.error("[profile] server reload failed:", error)
+      clearTimeout(timer)
+      console.error(
+        "[profile] profile selection saved, but the OpenCode server reload could not run:",
+        error,
+      )
+    })
+
+    child.on("exit", (code, signal) => {
+      clearTimeout(timer)
+
+      if (timedOut || code === 0) return
+
+      console.error(
+        code === null
+          ? `[profile] profile selection saved, but the OpenCode server reload was terminated by signal ${signal ?? "unknown"}.`
+          : `[profile] profile selection saved, but the OpenCode server reload exited with code ${code}.`,
+      )
     })
 
     child.unref()
@@ -471,7 +518,7 @@ export const ProfileServer: Plugin.Plugin = {
               )
             }
 
-            if (selectedDirectory === directory) {
+            if (sameDirectory(selectedDirectory, directory)) {
               active = next
             }
 
@@ -521,8 +568,10 @@ export const ProfileServer: Plugin.Plugin = {
 
             if (event.type === "session.created") {
               if (
-                event.data.location.directory !==
-                directory
+                !sameDirectory(
+                  event.data.location.directory,
+                  directory,
+                )
               ) {
                 continue
               }

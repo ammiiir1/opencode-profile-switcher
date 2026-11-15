@@ -25,6 +25,7 @@ A profile's `reasoningEffort` is applied as a model variant. That synchronizatio
 - Provider connections and access to the model IDs your profiles reference.
 - The Desktop application for GUI integration, the terminal application for TUI integration.
 - **Installing never builds anything.** The GUI bundle is committed to the repository and published in the package, so npm, GitHub, and manual installs all work without Node.js, npm, Bun, Vite, or Homebrew. (The optional `scripts/install.mjs` helper needs Node.js 20+.)
+- **Platforms:** macOS is tested and working. Linux compatibility has been reviewed, and Windows compatibility improvements are implemented, but neither has been tested on a real installation yet. See [Compatibility and status](#compatibility-and-status).
 
 The Desktop GUI extension API is experimental and can change between OpenCode versions. Check release compatibility when updating OpenCode.
 
@@ -86,15 +87,15 @@ Default global plugin directories:
 
 | Platform | Plugin package directory |
 | --- | --- |
-| macOS | `~/.config/opencode/plugins/opencode-profile-switcher/` |
+| macOS (tested) | `~/.config/opencode/plugins/opencode-profile-switcher/` |
 | Linux | `$XDG_CONFIG_HOME/opencode/plugins/opencode-profile-switcher/` (or `~/.config/opencode/plugins/…`) |
 | Windows (PowerShell) | `$HOME/.config/opencode/plugins/opencode-profile-switcher/` |
 
-OpenCode also supports custom config locations; use the directory **your** OpenCode installation reads.
+These are documented locations, not a claim of tested support: only macOS has been verified on a real installation so far. OpenCode also supports custom config locations; use the directory **your** OpenCode installation reads.
 
 ### Optional installer script
 
-The repository includes a small cross-platform installer that copies the built package into that directory for you. It requires Node.js 20 or newer, never edits OpenCode configuration, and does not build anything. It installs into the flat `opencode-profile-switcher` directory while validating the scoped package name `@ammiiir1/opencode-profile-switcher`.
+The repository includes a small Node.js installer that copies the built package into that directory for you. It requires Node.js 20 or newer, never edits OpenCode configuration, and does not build anything. It installs into the flat `opencode-profile-switcher` directory while validating the scoped package name `@ammiiir1/opencode-profile-switcher`.
 
 ```sh
 # from a checkout or an extracted release archive
@@ -282,7 +283,7 @@ The GUI bundle is CommonJS and must not import a module with top-level `await`; 
 ## Compatibility and status
 
 - **Target:** OpenCode V2 (`@opencode/plugin` 2.3.x). V1 is not supported.
-- **Platforms:** macOS, Linux, and Windows.
+- **Platform status:** macOS is tested and working. Linux compatibility has been reviewed, but the plugin has not been tested on a real Linux installation. Windows compatibility improvements are implemented, but the plugin has not been tested on a real Windows installation, so some issues may remain. Windows users: please report problems at [github.com/ammiiir1/opencode-profile-switcher/issues](https://github.com/ammiiir1/opencode-profile-switcher/issues).
 - **Interfaces:** server, TUI, and experimental Desktop GUI, plus the RPC contract in `./rpc`.
 - **Experimental limitation:** the Desktop GUI plugin SDK is not a stable API across releases.
 - **Runtime:** OpenCode supplies the JavaScript runtime; the manual installer script needs Node.js 20 or newer.

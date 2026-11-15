@@ -42,6 +42,8 @@ Options:
   --remove         Remove a previously installed copy
   --dry-run        Print what would happen without touching the filesystem
   -h, --help       Show this help
+
+A leading ~ or ~\\ in --from or --target expands to your home directory.
 `
 
 const fail = (message) => {
@@ -58,7 +60,11 @@ const warn = (message) => {
 }
 
 const expandHome = (path) =>
-  path === "~" ? homedir() : path.startsWith("~/") ? join(homedir(), path.slice(2)) : path
+  path === "~"
+    ? homedir()
+    : path.startsWith("~/") || path.startsWith("~\\")
+      ? join(homedir(), path.slice(2))
+      : path
 
 const parseArguments = (argv) => {
   const options = { from: repositoryRoot, target: undefined, force: false, remove: false, dryRun: false }
@@ -128,6 +134,15 @@ const requireEntry = async (path) => {
     await access(path)
   } catch {
     fail(`missing ${path}; install from a packaged release or run the build first`)
+  }
+}
+
+const pathExists = async (path) => {
+  try {
+    await access(path)
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -220,12 +235,43 @@ const install = async (options) => {
   }
 
   const staging = `${destination}.installing-${process.pid}`
+  const backup = `${destination}.backup-${process.pid}`
+  const hadDestination = await pathExists(destination)
 
   await rm(staging, { recursive: true, force: true })
   await mkdir(plugins, { recursive: true })
   await cp(source, staging, { recursive: true, filter: copyFilter })
-  await rm(destination, { recursive: true, force: true })
-  await rename(staging, destination)
+
+  let backedUp = false
+
+  try {
+    if (hadDestination) {
+      await rm(backup, { recursive: true, force: true })
+      await rename(destination, backup)
+      backedUp = true
+    }
+
+    await rename(staging, destination)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    if (backedUp) {
+      try {
+        await rm(destination, { recursive: true, force: true })
+        await rename(backup, destination)
+        backedUp = false
+      } catch (restoreError) {
+        warn(
+          `could not restore the previous installation from ${backup}: ${restoreError instanceof Error ? restoreError.message : String(restoreError)}`,
+        )
+      }
+    }
+
+    await rm(staging, { recursive: true, force: true })
+    fail(`could not install into ${destination}: ${message}`)
+  }
+
+  if (backedUp) await rm(backup, { recursive: true, force: true })
 
   const profiles = profilesDirectory()
   let profilesReady = false

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { spawnSync } from "node:child_process"
 import { existsSync } from "node:fs"
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
+import { homedir, tmpdir } from "node:os"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -83,6 +83,18 @@ describe("installer script", () => {
     expect(result.status).toBe(0)
     expect(result.stdout).toContain("Would create")
     expect(existsSync(opencode)).toBe(false)
+  })
+
+  test("expands ~ and ~\\ in --target during a dry run", async () => {
+    const configRoot = await makeConfigRoot()
+    const expected = join(homedir(), "custom-plugins", "opencode-profile-switcher")
+
+    for (const target of ["~/custom-plugins", "~\\custom-plugins"]) {
+      const result = runInstaller(configRoot, ["--dry-run", "--target", target])
+
+      expect(result.status).toBe(0)
+      expect(result.stdout).toContain(expected)
+    }
   })
 
   test("keeps existing user profiles unchanged when forcing a reinstall", async () => {
