@@ -39,6 +39,7 @@ export const ProfileRpc = Rpc.define({
         properties: {
           directory: { type: "string" },
           profile: { type: "string" },
+          sessionID: { type: "string" },
         },
         required: ["directory", "profile"],
         additionalProperties: false,

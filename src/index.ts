@@ -351,13 +351,10 @@ export const ProfileServer: Plugin.Plugin = {
       }, REPOSITION_DELAY_MS)
     }
 
-    const pinSession = async (
+    const switchSessionModel = async (
       session: SessionInfo,
+      profile: ActiveProfile,
     ) => {
-      const profile = active
-
-      if (disposed || session.parentID || !profile) return
-
       const assigned = profile.assignments.find(
         (entry) => entry.agent === session.agent,
       )
@@ -374,22 +371,32 @@ export const ProfileServer: Plugin.Plugin = {
         return
       }
 
+      const model = {
+        providerID: target.providerID as never,
+        id: target.modelID as never,
+      }
+
       try {
         await ctx.session.switchModel({
           sessionID: session.sessionID as never,
-          model: {
-            providerID: target.providerID as never,
-            id: target.modelID as never,
-            ...(variant
-              ? { variant: variant as never }
-              : {}),
-          },
+          model: variant ? { ...model, variant: variant as never } : model,
         })
       } catch (error) {
-        console.error(
-          "[profile] failed to configure new session:",
-          error,
-        )
+        if (!variant) throw error
+        await ctx.session.switchModel({
+          sessionID: session.sessionID as never,
+          model,
+        })
+      }
+    }
+
+    const pinSession = async (session: SessionInfo) => {
+      const profile = active
+      if (disposed || session.parentID || !profile) return
+      try {
+        await switchSessionModel(session, profile)
+      } catch (error) {
+        console.error("[profile] failed to configure new session:", error)
       }
     }
 
@@ -453,9 +460,11 @@ export const ProfileServer: Plugin.Plugin = {
             const {
               directory: selectedDirectory,
               profile: requestedName,
+              sessionID,
             } = input as {
               directory: string
               profile: string
+              sessionID?: string
             }
 
             let loaded: Profile
@@ -520,6 +529,16 @@ export const ProfileServer: Plugin.Plugin = {
 
             if (sameDirectory(selectedDirectory, directory)) {
               active = next
+              if (sessionID) {
+                try {
+                  const session = await ctx.session.get({ sessionID: sessionID as never })
+                  if (!session.parentID && sameDirectory(session.location.directory, selectedDirectory)) {
+                    await switchSessionModel({ ...session, sessionID: session.id }, next)
+                  }
+                } catch (error) {
+                  console.error("[profile] failed to configure selected session:", error)
+                }
+              }
             }
 
             const workflow = next.assignments.find(

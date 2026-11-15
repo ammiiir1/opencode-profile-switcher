@@ -8,7 +8,7 @@ Switch between model profiles in **OpenCode V2** without reconfiguring every age
 - Set a default model and per-agent model and reasoning effort from one JSON file.
 - Apply settings to built-in agents and to custom agents that exist on your install.
 - Store the selection **per repository** in `.opencode/model-profile.json`.
-- Refresh the live model and agent registries in-process after a switch, without restarting OpenCode.
+- Switch the open root session's model and schedule an OpenCode server reload after a profile selection.
 - Ship server, TUI, Desktop GUI, and RPC integrations in one package.
 
 ## Reasoning effort is best-effort
@@ -215,7 +215,7 @@ Referencing an agent in a profile does not create that agent: a profile only ass
 1. Open a repository in the OpenCode TUI or Desktop GUI.
 2. Type `/profile` and pick a profile.
 3. The selection is saved to that repository's `.opencode/model-profile.json`.
-4. The plugin disposes and re-registers its model and agent transforms, so the live registries follow the new profile without restarting OpenCode.
+4. The plugin switches the open root session's model and schedules an `opencode reload` to apply model and agent transforms.
 5. In the Desktop GUI, the active Composer also selects the profile's model when a session is open.
 
 Switch again at any time; selecting a profile is a runtime action.

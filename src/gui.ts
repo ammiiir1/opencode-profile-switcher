@@ -74,6 +74,7 @@ export default Plugin.define({
             const chosen = (await rpc.select({
               directory,
               profile: selected,
+              sessionID: ctx.sessions.current()?.id,
             })) as ProfileSelection;
 
             const composer = ctx.screen.current()?.composer;

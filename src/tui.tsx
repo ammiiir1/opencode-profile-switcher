@@ -29,9 +29,11 @@ const chooseProfile = async (context: Plugin.Context) => {
 
     if (!selected || selected === listed.current) return
 
+    const route = context.ui.router.current()
     const chosen = (await rpc.select({
       directory,
       profile: selected,
+      ...(route.type === "session" ? { sessionID: route.sessionID } : {}),
     })) as {
       profile: string
       label: string
