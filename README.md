@@ -1,8 +1,8 @@
 # OpenCode V2 Profile Switcher
 
-Switch between model setups in OpenCode with a single `/profile` command.
+Switch your entire OpenCode V2 workflow between model setups with a single `/profile` command.
 
-OpenCode V2 lets you choose a model for a session, but switching a complete set of default and agent-specific models takes manual configuration. Profile Switcher saves those setups as JSON profiles. It updates the active session and agent settings, keeps model selection in sync between the TUI and Desktop GUI, and remembers your choice per repository.
+If you use a custom workflow with multiple primary agents and subagents, changing each agent's model whenever your needs change gets tedious. Profile Switcher lets you define different model and reasoning-effort combinations in JSON profiles, then switch between them without repeatedly editing your workflow. It updates the active session, applies your agent settings, keeps the TUI and Desktop GUI in sync, and remembers the selected profile per repository.
 
 ## Install
 
@@ -38,27 +38,53 @@ You can switch profiles in existing sessions without losing conversation history
 
 ## Create a profile
 
-Add a JSON file to `~/.config/opencode/profiles/`, for example `my-profile.json`:
+Add a JSON file to `~/.config/opencode/profiles/`, for example `my-profile.json`.
 
-```json
+Both built-in and custom agents use the same `agent` structure, whether they're primary agents or subagents:
+
+```jsonc
 {
-  "model": "openai/gpt-6.1-sol",
+  "model": "openai/gpt-6-astra",
   "agent": {
-    "build": {
-      "model": "openai/gpt-6.1-terra",
+    "build": { // built-in primary agent
+      "model": "anthropic/claude-fable-5-2",
+      "reasoningEffort": "high"
+    },
+    "plan": { // built-in primary agent
+      "model": "openai/gpt-6-astra",
+      "reasoningEffort": "high"
+    },
+    "general": { // built-in subagent
+      "model": "openrouter/z-ai/glm-5.3",
       "reasoningEffort": "medium"
     },
-    "general": {
-      "model": "openai/gpt-6.1-sol",
-      "reasoningEffort": "low"
+    "explore": { // built-in subagent
+      "model": "openrouter/google/gemini-3.1-pro-preview",
+      "reasoningEffort": "medium"
+    },
+    "orchestrator": { // custom primary agent
+      "model": "openai/gpt-6-astra",
+      "reasoningEffort": "high"
+    },
+    "coder": { // custom subagent
+      "model": "openrouter/moonshotai/kimi-k3.1-pro",
+      "reasoningEffort": "high"
+    },
+    "auditor": { // custom subagent
+      "model": "anthropic/claude-opus-5-5",
+      "reasoningEffort": "high"
+    },
+    "vision-analyst": { // custom subagent
+      "model": "openrouter/deepseek/deepseek-v4-pro",
+      "reasoningEffort": "high"
     }
   }
 }
 ```
 
-- `model` sets the default model.
-- `agent` optionally sets a model and reasoning effort for individual agents, including subagents.
-- Use model IDs available through your own providers. Custom agents must already exist in OpenCode; a profile does not create them.
+- `model` sets the default model; `agent` assigns models and optional reasoning effort to individual agents.
+- The model IDs are illustrative. Use models available through your connected providers. Custom agents must already be defined in OpenCode.
+- The `//` comments label agent types for this README only. Remove them before saving the file as `.json`.
 
 **After adding or editing a profile file**, run:
 
