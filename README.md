@@ -162,7 +162,8 @@ A profile is a JSON file:
 
 - `model` is the profile's fallback model, used when no agent-specific assignment matches.
 - Each `agent` entry sets that agent's model and, optionally, its reasoning effort.
-- Model references are `provider/model`; the model part may contain slashes, for example `openrouter/deepseek/deepseek-v4.1-flash`.
+- A model reference is split at the **first** `/` into a provider and a model ID; everything after that `/` is passed to OpenCode unchanged, so `openrouter/deepseek/deepseek-v4.1-flash` means provider `openrouter` and model `deepseek/deepseek-v4.1-flash`.
+- The plugin does not restrict provider names, model IDs, or the number of `/` separators. Whether a model exists and is usable is OpenCode's concern.
 - `build` and `plan` are built-in primary agents; `general` and `explore` are built-in subagents. `orchestrator`, `coder`, `auditor`, and `vision-analyst` in the bundled examples are **illustrative custom agent names** — a profile does not create agents.
 - Files must be `.json`; no `//` comments.
 
@@ -172,9 +173,8 @@ You write your own profiles: create a `.json` file in the global profiles direct
 
 In order:
 
-1. `options.profilesDir`, when you set it. A relative path resolves against the workspace directory.
-2. The global user directory `$XDG_CONFIG_HOME/opencode/profiles` (or `~/.config/opencode/profiles`; `%USERPROFILE%\.config\opencode\profiles` on Windows) — used when it contains at least one `.json` file.
-3. The bundled `examples/profiles/` shipped with the package.
+1. The global user directory `$XDG_CONFIG_HOME/opencode/profiles` (or `~/.config/opencode/profiles`; `%USERPROFILE%\.config\opencode\profiles` on Windows) — used when it contains at least one `.json` file.
+2. The bundled `examples/profiles/` shipped with the package.
 
 The global directory is created automatically, and empty, when it does not exist: plugin setup does it, and so does `scripts/install.mjs`. Creating it never writes, overwrites, or deletes profile files you have added. If it cannot be created — a read-only home directory, for example — setup logs a warning and uses the bundled examples instead of failing.
 
@@ -182,29 +182,11 @@ The bundled directory is a read-only fallback: discovery reads it and never writ
 
 Profiles added to the global directory are picked up on the next `opencode reload`, because plugin setup re-reads the directory. No reinstall is needed.
 
-A configured `profilesDir` that is missing or contains no `.json` profiles is a setup error, named in the plugin log, rather than a silent fallback; unlike the global directory, it is never created for you. The bundled directory is required as the last fallback; if it is missing, setup fails with a clear message.
+The bundled directory is required as the last fallback; if it is missing, setup fails with a clear message.
 
 Profile names come from file names, sorted alphabetically; labels are derived from the name (`gpt-economic` → `GPT Economic`).
 
-### Options
-
-```jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugins": [
-    {
-      "package": "@ammiiir1/opencode-profile-switcher",
-      "options": {
-        "profilesDir": "./profiles"
-      }
-    }
-  ]
-}
-```
-
-| Option | Purpose |
-| --- | --- |
-| `profilesDir` | Directory to read profiles from. Relative paths resolve against the workspace directory. It must already contain a `.json` profile: a missing or empty configured directory is a setup error, not a directory the plugin creates. |
+### Initial selection
 
 Initial selection is resolved as: the stored per-repository selection, when one exists → the first profile in the global profiles directory, ordered alphabetically by file name. No profile name is hardcoded, and a bundled example is never selected automatically: while your global profiles directory has no `.json` profile, no profile is active until you choose one.
 
@@ -288,7 +270,7 @@ The GUI bundle is CommonJS and must not import a module with top-level `await`; 
 | `/profile` is missing in the Desktop GUI | Confirm the plugin is registered once, the Desktop app uses that server, and the package contains `dist/gui-experimental.cjs`. Check Settings → Extensions → Plugins where available. |
 | `/profile` is missing in the TUI | Confirm `./tui` is exported and the TUI slash command registered; check `opencode plugin list`. |
 | `/profile` appears twice | Two installations are registered (for example npm plus GitHub, or a plugins directory plus an explicit `plugins` path). Keep one. |
-| No profiles appear | A clean install shows the six bundled examples and leaves the global profiles directory empty until you add a profile. Check the setup error in the plugin log: a configured `profilesDir` that is missing or has no `.json` files fails setup by design, and is not created for you. Also confirm the JSON is valid and the model IDs exist. |
+| No profiles appear | A clean install shows the six bundled examples and leaves the global profiles directory empty until you add a profile. Check the setup error in the plugin log, confirm the JSON is valid, and confirm the model IDs exist. |
 | A profile you just added is not listed | Discovery runs at plugin setup: run `opencode reload` (or restart OpenCode) after adding a `.json` file to the global profiles directory, then open `/profile`. |
 | Your profiles are missing after an update or uninstall | They should not be: installing, updating, reloading, and `node scripts/install.mjs --remove` never touch the global profiles directory or per-repository selections. Confirm which config home your OpenCode reads: `$XDG_CONFIG_HOME/opencode/profiles` versus `~/.config/opencode/profiles`. |
 | Your custom agent was not changed | The switch failed with `Unknown agent: <name>` because the profile references an agent your installation does not define; nothing was saved. Define the agent in OpenCode first. |

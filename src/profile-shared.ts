@@ -7,8 +7,6 @@ export type ProfileName = string
 export type AgentProfile = { model: string; reasoningEffort?: string }
 export type Profile = { model: string; agent: Record<string, AgentProfile> }
 
-const modelPattern = /^[^/\s]+\/[^/\s]+$/
-
 const bundledProfilesDirectory = new URL("../examples/profiles/", import.meta.url)
 
 export const userProfilesDirectory = () =>
@@ -73,11 +71,7 @@ export const loadProfile = async (name: ProfileName): Promise<Profile> => {
     throw new Error(`Profile ${profileLabels[name]} must be an object`)
   }
   const profile = value as Partial<Profile>
-  if (
-    typeof profile.model !== "string" ||
-    !modelPattern.test(profile.model) ||
-    profile.model.includes("CONFIGURE_")
-  ) {
+  if (typeof profile.model !== "string" || profile.model.trim() === "") {
     throw new Error(`Profile ${profileLabels[name]} has an invalid default model`)
   }
   if (!profile.agent || typeof profile.agent !== "object") {
@@ -87,11 +81,7 @@ export const loadProfile = async (name: ProfileName): Promise<Profile> => {
     if (!agent || !assignment || typeof assignment !== "object") {
       throw new Error(`Profile ${profileLabels[name]} has an invalid model for ${agent || "an agent"}`)
     }
-    if (
-      typeof assignment.model !== "string" ||
-      !modelPattern.test(assignment.model) ||
-      assignment.model.includes("CONFIGURE_")
-    ) {
+    if (typeof assignment.model !== "string" || assignment.model.trim() === "") {
       throw new Error(`Profile ${profileLabels[name]} has an invalid model for ${agent}`)
     }
     if (
