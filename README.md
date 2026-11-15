@@ -139,7 +139,7 @@ Homebrew was considered and deliberately not provided: it installs files, while 
 
 ## Profiles
 
-A profile is a JSON file:
+A profile is a JSON file. This is [`examples/profiles/gpt-economic.json`](examples/profiles/gpt-economic.json) in full:
 
 ```json
 {
@@ -153,9 +153,29 @@ A profile is a JSON file:
       "model": "openai/gpt-6.1-sol",
       "reasoningEffort": "medium"
     },
+    "general": {
+      "model": "openai/gpt-5-nano",
+      "reasoningEffort": "medium"
+    },
+    "explore": {
+      "model": "openai/gpt-5-nano",
+      "reasoningEffort": "low"
+    },
     "orchestrator": {
       "model": "openai/gpt-6.1-sol",
       "reasoningEffort": "high"
+    },
+    "coder": {
+      "model": "openai/gpt-6.1-terra",
+      "reasoningEffort": "medium"
+    },
+    "auditor": {
+      "model": "openai/gpt-6.1-sol",
+      "reasoningEffort": "high"
+    },
+    "vision-analyst": {
+      "model": "openai/gpt-6.1-sol",
+      "reasoningEffort": "medium"
     }
   }
 }
@@ -163,6 +183,7 @@ A profile is a JSON file:
 
 - `model` is the profile's fallback model, used when no agent-specific assignment matches.
 - Each `agent` entry sets that agent's model and, optionally, its reasoning effort.
+- Primary agents and subagents are configured the same way: `build` and `plan` are primary agents in the example above, `general` and `explore` are subagents. Assign every agent you want the profile to control, in one `agent` object — a profile can set models for both kinds.
 - A model reference is split at the **first** `/` into a provider and a model ID; everything after that `/` is passed to OpenCode unchanged, so `openrouter/deepseek/deepseek-v4.1-flash` means provider `openrouter` and model `deepseek/deepseek-v4.1-flash`.
 - The plugin does not restrict provider names, model IDs, or the number of `/` separators. Whether a model exists and is usable is OpenCode's concern.
 - `build` and `plan` are built-in primary agents; `general` and `explore` are built-in subagents. `orchestrator`, `coder`, `auditor`, and `vision-analyst` in the bundled examples are **illustrative custom agent names** — a profile does not create agents.
