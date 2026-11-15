@@ -181,9 +181,9 @@ const printNextSteps = (destination, plugins, profiles) => {
   info("  1. Restart OpenCode (or reload its server) so it discovers the plugin.")
   info("  2. Open a repository and run /profile in the TUI or the Desktop GUI.")
   if (profiles === undefined) {
-    info(`  3. Could not create ${profilesDirectory()}. Create it yourself, or set the plugin's profilesDir option; new .json files are discovered after \`opencode reload\`.`)
+    info(`  3. Could not create ${profilesDirectory()}. Create it yourself; new .json files are discovered after \`opencode reload\`.`)
   } else {
-    info(`  3. ${profiles} is ready and stays empty until you add profiles. Put your own .json files there, or set the plugin's profilesDir option; new files are discovered after \`opencode reload\`.`)
+    info(`  3. ${profiles} is ready and stays empty until you add profiles. Put your own .json files there; new files are discovered after \`opencode reload\`.`)
     info(`     The six bundled examples live only inside the installed package and are used read-only while ${profiles} has no .json profile. Installing or updating never overwrites or deletes profile files.`)
   }
   info(`  Remove this copy with: node scripts/install.mjs --remove --target "${plugins}"`)
